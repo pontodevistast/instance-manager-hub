@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Instance } from '@/types/instance';
 import { useToast } from '@/hooks/use-toast';
@@ -8,8 +8,11 @@ export function useInstances(locationId: string | null) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchInstances = async () => {
-    if (!locationId) return;
+  const fetchInstances = useCallback(async () => {
+    if (!locationId) {
+      setIsLoading(false);
+      return;
+    }
     
     setIsLoading(true);
     try {
@@ -22,6 +25,7 @@ export function useInstances(locationId: string | null) {
       if (error) throw error;
       setInstances(data || []);
     } catch (error: any) {
+      console.error('Erro ao buscar instâncias:', error);
       toast({
         title: 'Erro ao buscar instâncias',
         description: error.message,
@@ -30,16 +34,16 @@ export function useInstances(locationId: string | null) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [locationId, toast]);
 
   useEffect(() => {
-    if (!locationId) return;
-
     fetchInstances();
+
+    if (!locationId) return;
 
     // Inscrição para atualizações em tempo real
     const channel = supabase
-      .channel('instances-changes')
+      .channel(`instances-${locationId}`)
       .on(
         'postgres_changes',
         {
@@ -57,7 +61,7 @@ export function useInstances(locationId: string | null) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [locationId]);
+  }, [locationId, fetchInstances]);
 
   return { instances, isLoading, refetch: fetchInstances };
 }

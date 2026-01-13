@@ -48,7 +48,7 @@ export default function InstancesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Instâncias</h1>
-          <p className="text-muted-foreground">Gerencie suas conexões do WhatsApp</p>
+          <p className="text-muted-foreground">Gerencie suas conexões do WhatsApp (ID: {locationId})</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isLoading}>

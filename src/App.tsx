@@ -18,24 +18,29 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <BrowserRouter>
-        <LocationProvider>
-          <Toaster />
-          <Sonner />
-          <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="/login" element={<LoginView />} />
-            
-            <Route path="/:locationId" element={<Dashboard />}>
-              <Route index element={<Navigate to="instances" replace />} />
-              <Route path="instances" element={<InstancesPage />} />
-              <Route path="ghl" element={<GHLIntegrationPage />} />
-              <Route path="logs" element={<LogsPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-            </Route>
+        <Toaster />
+        <Sonner />
+        <Routes>
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={<LoginView />} />
+          
+          <Route 
+            path="/:locationId" 
+            element={
+              <LocationProvider>
+                <Dashboard />
+              </LocationProvider>
+            }
+          >
+            <Route index element={<Navigate to="instances" replace />} />
+            <Route path="instances" element={<InstancesPage />} />
+            <Route path="ghl" element={<GHLIntegrationPage />} />
+            <Route path="logs" element={<LogsPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </LocationProvider>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
