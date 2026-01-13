@@ -5,21 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ManageSubaccountDialog } from '@/components/ManageSubaccountDialog';
+import { AddSubaccountDialog } from '@/components/AddSubaccountDialog';
 import { Plus, LayoutGrid, ChevronRight, Search, Loader2, Settings2 } from 'lucide-react';
 
 export default function ManagerPage() {
-  const [newLocationId, setNewLocationId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubaccount, setSelectedSubaccount] = useState<string | null>(null);
+  const [isAddOpen, setIsAddOpen] = useState(false);
   const { data: subaccounts, isLoading, refetch } = useSubaccounts();
   const navigate = useNavigate();
-
-  const handleAdd = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newLocationId.trim()) {
-      navigate(`/${newLocationId.trim()}/instances`);
-    }
-  };
 
   const filteredAccounts = subaccounts?.filter(id => 
     id.toLowerCase().includes(searchTerm.toLowerCase())
@@ -33,17 +27,9 @@ export default function ManagerPage() {
             <h1 className="text-3xl font-bold tracking-tight">Dashboard Gestor</h1>
             <p className="text-muted-foreground">Gerencie todas as suas subcontas GoHighLevel em um só lugar.</p>
           </div>
-          <form onSubmit={handleAdd} className="flex gap-2">
-            <Input 
-              placeholder="Novo Location ID" 
-              className="w-[240px] bg-background"
-              value={newLocationId}
-              onChange={(e) => setNewLocationId(e.target.value)}
-            />
-            <Button type="submit">
-              <Plus className="h-4 w-4 mr-2" /> Adicionar
-            </Button>
-          </form>
+          <Button onClick={() => setIsAddOpen(true)} className="shadow-lg">
+            <Plus className="h-4 w-4 mr-2" /> Nova Subconta
+          </Button>
         </div>
 
         <div className="grid gap-6">
@@ -119,6 +105,15 @@ export default function ManagerPage() {
           </Card>
         </div>
       </div>
+
+      <AddSubaccountDialog 
+        open={isAddOpen} 
+        onOpenChange={setIsAddOpen} 
+        onSuccess={(id) => {
+          refetch();
+          navigate(`/${id}/instances`);
+        }}
+      />
 
       {selectedSubaccount && (
         <ManageSubaccountDialog
