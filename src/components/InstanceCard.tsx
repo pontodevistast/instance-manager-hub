@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ConnectDialog } from '@/components/ConnectDialog';
 import { EditInstanceDialog } from '@/components/EditInstanceDialog';
-import { Smartphone, Unplug, RefreshCw, CheckCircle2, Copy, Send, Settings2 } from 'lucide-react';
+import { Smartphone, Unplug, RefreshCw, CheckCircle2, Copy, Send, Settings2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import type { Instance } from '@/types/instance';
 import { cn } from '@/lib/utils';
 
@@ -17,24 +18,42 @@ interface InstanceCardProps {
 export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
   const [isConnectOpen, setIsConnectOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
   const { toast } = useToast();
-
-  const maskToken = (token: string | null) => {
-    if (!token) return 'Sem Token';
-    if (token.length < 8) return token;
-    return `${token.substring(0, 4)}...${token.substring(token.length - 4)}`;
-  };
 
   const copyToken = () => {
     if (instance.instance_token) {
       navigator.clipboard.writeText(instance.instance_token);
-      toast({ title: 'Copiado', description: 'Token da instância copiado para a área de transferência.' });
+      toast({ title: 'Copiado' });
     }
   };
 
-  const handleTestMessage = async () => {
-    toast({ title: 'Teste enviado', description: 'Uma mensagem de teste foi solicitada para esta instância.' });
+  const handleLogout = async () => {
+    if (!instance.instance_token) return;
+    
+    setIsDisconnecting(true);
+    try {
+      const response = await fetch('https://dev.bslabs.space/webhook/desconectar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instanceName: instance.instance_token }),
+      });
+
+      if (!response.ok) throw new Error('Erro ao desconectar no servidor.');
+
+      // Atualiza o status no banco de dados local
+      await supabase
+        .from('instances')
+        .update({ status: 'disconnected', qr_code: null })
+        .eq('id', instance.id);
+
+      toast({ title: 'Desconectado', description: 'A instância foi desconectada com sucesso.' });
+      onRefresh();
+    } catch (error: any) {
+      toast({ title: 'Erro ao sair', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsDisconnecting(false);
+    }
   };
 
   return (
@@ -47,15 +66,15 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
                 <Smartphone className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               </div>
               <div className="space-y-0.5">
-                <h3 className="font-bold text-slate-900 dark:text-slate-100 leading-none">
-                  {instance.instance_name || 'Instância WhatsApp'}
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 leading-none truncate max-w-[120px]">
+                  {instance.instance_name || 'Instância'}
                 </h3>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-mono text-slate-500 uppercase">
-                    {maskToken(instance.instance_token)}
+                  <span className="text-[10px] font-mono text-slate-500 uppercase">
+                    {instance.instance_token ? `${instance.instance_token.substring(0, 8)}...` : 'Sem Token'}
                   </span>
                   {instance.instance_token && (
-                    <button onClick={copyToken} className="text-slate-400 hover:text-indigo-600 transition-colors">
+                    <button onClick={copyToken} className="text-slate-400 hover:text-indigo-600">
                       <Copy className="w-3 h-3" />
                     </button>
                   )}
@@ -77,23 +96,18 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
         </CardHeader>
 
         <CardContent className="px-5 py-4 flex-1">
-          <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 flex flex-col items-center justify-center min-h-[140px] border border-dashed border-slate-200 dark:border-slate-800">
+          <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 flex flex-col items-center justify-center min-h-[120px] border border-dashed border-slate-200 dark:border-slate-800">
             {instance.status === 'connected' ? (
               <div className="text-center space-y-2">
-                <div className="mx-auto w-12 h-12 bg-green-50 dark:bg-green-900/20 rounded-full flex items-center justify-center">
-                  <CheckCircle2 className="w-6 h-6 text-green-600" />
+                <div className="mx-auto w-10 h-10 bg-green-50 dark:bg-green-900/20 rounded-full flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5 text-green-600" />
                 </div>
-                <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Pronto para uso</p>
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-400">WhatsApp Conectado</p>
               </div>
             ) : (
               <div className="text-center space-y-3">
-                <p className="text-xs text-slate-500 max-w-[150px]">Requer conexão para processar mensagens</p>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="h-8 text-xs font-semibold"
-                  onClick={() => setIsConnectOpen(true)}
-                >
+                <p className="text-[11px] text-slate-500">Requer conexão ativa</p>
+                <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => setIsConnectOpen(true)}>
                   Conectar agora
                 </Button>
               </div>
@@ -105,23 +119,26 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
           <div className="flex w-full gap-2 pt-4">
             {instance.status === 'connected' ? (
               <>
-                <Button variant="ghost" className="flex-1 h-9 text-[11px] font-bold" onClick={handleTestMessage}>
-                  <Send className="w-3.5 h-3.5 mr-2" />
-                  TESTAR
+                <Button variant="ghost" className="flex-1 h-8 text-[10px] font-bold" disabled>
+                  <Send className="w-3 h-3 mr-2" /> TESTAR
                 </Button>
-                <Button variant="outline" className="flex-1 h-9 text-[11px] font-bold text-red-600 hover:text-red-700 hover:bg-red-50 border-red-100 hover:border-red-200">
-                  <Unplug className="w-3.5 h-3.5 mr-2" />
+                <Button 
+                  variant="outline" 
+                  className="flex-1 h-8 text-[10px] font-bold text-red-600 border-red-100"
+                  onClick={handleLogout}
+                  disabled={isDisconnecting}
+                >
+                  {isDisconnecting ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Unplug className="w-3 h-3 mr-2" />}
                   SAIR
                 </Button>
               </>
             ) : (
               <>
-                <Button variant="ghost" className="flex-1 h-9 text-[11px] font-bold" onClick={() => onRefresh()}>
-                  <RefreshCw className={cn("w-3.5 h-3.5 mr-2", isLoading && "animate-spin")} />
-                  STATUS
+                <Button variant="ghost" className="flex-1 h-8 text-[10px] font-bold" onClick={() => onRefresh()}>
+                  <RefreshCw className="w-3 h-3 mr-2" /> STATUS
                 </Button>
-                <Button className="flex-1 h-9 text-[11px] font-bold shadow-md shadow-indigo-200 dark:shadow-none" onClick={() => setIsConnectOpen(true)}>
-                  CONFIGURAR
+                <Button className="flex-1 h-8 text-[10px] font-bold" onClick={() => setIsConnectOpen(true)}>
+                  CONECTAR
                 </Button>
               </>
             )}
@@ -129,19 +146,8 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
         </CardFooter>
       </Card>
 
-      <ConnectDialog
-        open={isConnectOpen}
-        onOpenChange={setIsConnectOpen}
-        instance={instance}
-        onSuccess={onRefresh}
-      />
-
-      <EditInstanceDialog
-        open={isEditOpen}
-        onOpenChange={setIsEditOpen}
-        instance={instance}
-        onSuccess={onRefresh}
-      />
+      <ConnectDialog open={isConnectOpen} onOpenChange={setIsConnectOpen} instance={instance} onSuccess={onRefresh} />
+      <EditInstanceDialog open={isEditOpen} onOpenChange={setIsEditOpen} instance={instance} onSuccess={onRefresh} />
     </>
   );
 }
