@@ -1,21 +1,20 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Instance } from '@/types/instance';
 import { useToast } from '@/hooks/use-toast';
 
 export function useInstances(locationId: string | null) {
-  const [instances, setInstances] = useState<Instance[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
   const { toast } = useToast();
+  const queryKey = ['instances', locationId];
 
-  const fetchInstances = useCallback(async () => {
-    if (!locationId) {
-      setIsLoading(false);
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
+  // Busca inicial e gerenciamento de cache via React Query
+  const { data: instances = [], isLoading, refetch } = useQuery({
+    queryKey,
+    queryFn: async () => {
+      if (!locationId) return [];
+      
       const { data, error } = await supabase
         .from('instances')
         .select('*')
@@ -23,45 +22,76 @@ export function useInstances(locationId: string | null) {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setInstances(data || []);
-    } catch (error: any) {
-      console.error('Erro ao buscar instâncias:', error);
-      toast({
-        title: 'Erro ao buscar instâncias',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [locationId, toast]);
+      return data as Instance[];
+    },
+    enabled: !!locationId,
+  });
 
+  // Configuração do Supabase Realtime
   useEffect(() => {
-    fetchInstances();
-
     if (!locationId) return;
 
-    // Inscrição para atualizações em tempo real
     const channel = supabase
-      .channel(`instances-${locationId}`)
+      .channel(`instances_changes_${locationId}`)
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'instances',
+          filter: `location_id=eq.${locationId}`,
+        },
+        (payload) => {
+          const updatedInstance = payload.new as Instance;
+          const oldInstance = payload.old as Instance;
+
+          // Invalida o cache para forçar um refetch e manter os dados consistentes
+          queryClient.invalidateQueries({ queryKey });
+
+          // Notifica o usuário sobre a mudança de status se ela ocorreu
+          if (oldInstance && updatedInstance.status !== oldInstance.status) {
+            toast({
+              title: 'Status atualizado',
+              description: `A instância "${updatedInstance.instance_name}" agora está ${updatedInstance.status}.`,
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
           schema: 'public',
           table: 'instances',
           filter: `location_id=eq.${locationId}`,
         },
         () => {
-          fetchInstances();
+          queryClient.invalidateQueries({ queryKey });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'instances',
+          filter: `location_id=eq.${locationId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey });
         }
       )
       .subscribe();
 
+    // Cleanup: Remove a inscrição ao desmontar o componente ou mudar o locationId
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [locationId, fetchInstances]);
+  }, [locationId, queryClient, queryKey, toast]);
 
-  return { instances, isLoading, refetch: fetchInstances };
+  return { 
+    instances, 
+    isLoading, 
+    refetch 
+  };
 }
