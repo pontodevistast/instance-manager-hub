@@ -2,46 +2,15 @@ import { useLocation } from '@/contexts/LocationContext';
 import { InstanceCard } from '@/components/InstanceCard';
 import { InstanceCardSkeleton } from '@/components/InstanceCardSkeleton';
 import { Button } from '@/components/ui/button';
+import { AddInstanceDialog } from '@/components/AddInstanceDialog';
 import { Plus, RefreshCw, Smartphone, PlusCircle } from 'lucide-react';
 import { useInstances } from '@/hooks/use-instances';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 
 export default function InstancesPage() {
   const { locationId } = useLocation();
   const { instances, isLoading, refetch } = useInstances(locationId);
-  const [isCreating, setIsCreating] = useState(false);
-  const { toast } = useToast();
-
-  const handleAddInstance = async () => {
-    if (!locationId) return;
-    
-    setIsCreating(true);
-    try {
-      const { error } = await supabase.from('instances').insert({
-        location_id: locationId,
-        instance_name: 'Nova Instância',
-        status: 'disconnected',
-      });
-
-      if (error) throw error;
-      
-      toast({
-        title: 'Instância criada',
-        description: 'Configure-a para começar a usar.',
-      });
-      refetch();
-    } catch (error: any) {
-      toast({
-        title: 'Erro ao criar',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsCreating(false);
-    }
-  };
+  const [isAddOpen, setIsAddOpen] = useState(false);
 
   return (
     <div className="space-y-8 max-w-[1600px] mx-auto">
@@ -56,7 +25,7 @@ export default function InstancesPage() {
           <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isLoading} className="rounded-xl">
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
-          <Button onClick={handleAddInstance} disabled={isCreating} className="rounded-xl shadow-lg shadow-indigo-100 dark:shadow-none px-6">
+          <Button onClick={() => setIsAddOpen(true)} className="rounded-xl shadow-lg shadow-indigo-100 dark:shadow-none px-6">
             <Plus className="h-4 w-4 mr-2" />
             Nova Instância
           </Button>
@@ -64,18 +33,16 @@ export default function InstancesPage() {
       </div>
 
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {/* Card de Adição Rápida */}
         <button 
-          onClick={handleAddInstance}
-          disabled={isCreating}
-          className="flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 transition-all group bg-slate-50/50 dark:bg-slate-900/20 min-h-[340px]"
+          onClick={() => setIsAddOpen(true)}
+          className="flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 transition-all group bg-slate-50/50 dark:bg-slate-900/20 min-h-[300px]"
         >
           <div className="w-16 h-16 rounded-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-center group-hover:scale-110 group-hover:border-indigo-200 transition-all shadow-sm">
             <PlusCircle className="w-8 h-8 text-slate-400 group-hover:text-indigo-600 transition-colors" />
           </div>
           <div className="mt-6 text-center">
             <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Adicionar Instância</p>
-            <p className="text-xs text-slate-500 mt-1 max-w-[160px]">Crie uma nova conexão WhatsApp agora mesmo</p>
+            <p className="text-xs text-slate-500 mt-1 max-w-[160px]">Defina os dados e inicie a conexão</p>
           </div>
         </button>
 
@@ -90,6 +57,15 @@ export default function InstancesPage() {
           ))
         )}
       </div>
+
+      {locationId && (
+        <AddInstanceDialog 
+          open={isAddOpen} 
+          onOpenChange={setIsAddOpen} 
+          locationId={locationId} 
+          onSuccess={refetch} 
+        />
+      )}
     </div>
   );
 }
