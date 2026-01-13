@@ -7,6 +7,7 @@ import { LocationProvider } from "@/contexts/LocationContext";
 import { LoginView } from "@/components/LoginView";
 import Dashboard from "@/pages/Dashboard";
 import InstancesPage from "@/pages/InstancesPage";
+import GHLIntegrationPage from "@/pages/GHLIntegrationPage";
 import LogsPage from "@/pages/LogsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "./pages/NotFound";
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/:locationId" element={<Dashboard />}>
               <Route index element={<Navigate to="instances" replace />} />
               <Route path="instances" element={<InstancesPage />} />
+              <Route path="ghl" element={<GHLIntegrationPage />} />
               <Route path="logs" element={<LogsPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>

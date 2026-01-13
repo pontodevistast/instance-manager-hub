@@ -1,4 +1,4 @@
-import { Smartphone, FileText, Settings, LogOut, MessageSquare } from 'lucide-react';
+import { Smartphone, FileText, Settings, LogOut, MessageSquare, Zap } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from '@/contexts/LocationContext';
 import {
@@ -20,6 +20,7 @@ export function AppSidebar() {
 
   const menuItems = [
     { title: 'Instâncias', url: `/${locationId}/instances`, icon: Smartphone },
+    { title: 'Integração GHL', url: `/${locationId}/ghl`, icon: Zap },
     { title: 'Logs', url: `/${locationId}/logs`, icon: FileText },
     { title: 'Configurações', url: `/${locationId}/settings`, icon: Settings },
   ];
