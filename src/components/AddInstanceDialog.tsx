@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useSubaccountConfig } from '@/hooks/use-subaccount-config';
-import { Loader2, Plus, Link2 } from 'lucide-react';
+import { Loader2, Plus, Link2, Info } from 'lucide-react';
 
 interface AddInstanceDialogProps {
   open: boolean;
@@ -25,28 +25,38 @@ interface AddInstanceDialogProps {
 
 export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }: AddInstanceDialogProps) {
   const [name, setName] = useState('');
+  const [systemName, setSystemName] = useState('');
   const [token, setToken] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<'new' | 'import'>('new');
   const { toast } = useToast();
   
-  // Busca configurações globais da subconta (Token da API e Base URL)
   const { data: config } = useSubaccountConfig(locationId);
 
-  const generateRandomToken = () => {
-    return 'inst_' + Math.random().toString(36).substring(2, 10);
-  };
+  // Gera o System Name automaticamente a partir do nome amigável
+  useEffect(() => {
+    if (mode === 'new' && name) {
+      const slug = name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+        .replace(/[^a-z0-9]/g, '') // Remove caracteres especiais
+        .substring(0, 15);
+      setSystemName(slug + '_' + Math.random().toString(36).substring(2, 5));
+    }
+  }, [name, mode]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    if (mode === 'import' && !token.trim()) return;
     
-    // Verifica se temos as configurações globais para criar no servidor
+    const finalSystemName = mode === 'new' ? systemName : token.trim();
+    if (!finalSystemName) return;
+
     if (mode === 'new' && (!config?.api_token || !config?.api_base_url)) {
       toast({ 
         title: 'Configuração incompleta', 
-        description: 'Configure o Global API Token na aba Integração antes de criar novas instâncias.',
+        description: 'Configure o Global API Token na aba Integração primeiro.',
         variant: 'destructive'
       });
       return;
@@ -54,9 +64,7 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
 
     setIsLoading(true);
     try {
-      const finalToken = mode === 'new' ? generateRandomToken() : token.trim();
-
-      // 1. Criar no servidor UaZapi (apenas se for nova)
+      // 1. Criar no servidor UaZapi
       if (mode === 'new') {
         const createRes = await fetch(`${config.api_base_url}/instance/create`, {
           method: 'POST',
@@ -65,14 +73,14 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
             'Authorization': `Bearer ${config.api_token}`
           },
           body: JSON.stringify({
-            instanceName: finalToken,
-            token: finalToken // Usando o token como o identificador da instância
+            instanceName: finalSystemName,
+            token: finalSystemName // Usamos o mesmo ID como token da instância por padrão
           })
         });
 
         if (!createRes.ok) {
           const errData = await createRes.json();
-          throw new Error(errData.message || 'Erro ao criar instância no servidor UaZapi.');
+          throw new Error(errData.message || 'Erro na API UaZapi. Verifique se o Token Global está correto.');
         }
       }
 
@@ -80,23 +88,24 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
       const { error: dbError } = await supabase.from('instances').insert({
         location_id: locationId,
         instance_name: name.trim(),
-        instance_token: finalToken,
+        instance_token: finalSystemName,
         status: 'disconnected',
       });
 
       if (dbError) throw dbError;
 
       toast({ 
-        title: mode === 'new' ? 'Instância Criada' : 'Instância Importada', 
-        description: 'Instância configurada com sucesso no servidor e no painel.' 
+        title: mode === 'new' ? 'Sucesso!' : 'Importado!', 
+        description: 'Instância pronta para conexão.' 
       });
       
       setName('');
+      setSystemName('');
       setToken('');
       onOpenChange(false);
       onSuccess();
     } catch (error: any) {
-      toast({ title: 'Erro ao processar', description: error.message, variant: 'destructive' });
+      toast({ title: 'Falha na criação', description: error.message, variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
@@ -107,54 +116,62 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleCreate}>
           <DialogHeader>
-            <DialogTitle>Adicionar Conexão</DialogTitle>
+            <DialogTitle>Nova Conexão WhatsApp</DialogTitle>
             <DialogDescription>
               {mode === 'new' 
-                ? 'Uma nova instância será gerada automaticamente no servidor UaZapi.' 
-                : 'Vincule uma instância que já existe no seu servidor.'}
+                ? 'Crie uma nova instância automaticamente no seu servidor.' 
+                : 'Vincule uma instância que já existe e está ativa.'}
             </DialogDescription>
           </DialogHeader>
 
           <Tabs defaultValue="new" className="w-full mt-4" onValueChange={(v) => setMode(v as any)}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="new">Criar Nova</TabsTrigger>
-              <TabsTrigger value="import">Importar Existente</TabsTrigger>
+              <TabsTrigger value="import">Importar</TabsTrigger>
             </TabsList>
             
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Nome Amigável</Label>
+                <Label htmlFor="name">Nome da Instância (Exibição)</Label>
                 <Input
                   id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Ex: WhatsApp Vendas"
+                  placeholder="Ex: Suporte Vendas"
                   required
                 />
               </div>
 
+              <TabsContent value="new" className="m-0 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="sysName" className="flex items-center gap-2">
+                    System Name (ID Técnico)
+                    <Info className="h-3 w-3 text-muted-foreground" />
+                  </Label>
+                  <Input
+                    id="sysName"
+                    value={systemName}
+                    onChange={(e) => setSystemName(e.target.value)}
+                    placeholder="id_tecnico"
+                    className="bg-muted/50 font-mono text-xs"
+                  />
+                </div>
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+                  <p className="text-[11px] text-blue-700 dark:text-blue-300 leading-relaxed">
+                    Este ID será usado nas requisições de QR Code e Status. Ele é gerado automaticamente para você.
+                  </p>
+                </div>
+              </TabsContent>
+
               <TabsContent value="import" className="m-0 space-y-2">
-                <Label htmlFor="token">Token / ID da Instância</Label>
+                <Label htmlFor="token">Token / System Name Existente</Label>
                 <Input
                   id="token"
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
-                  placeholder="Insira o ID técnico da instância"
+                  placeholder="Insira o ID exato do servidor"
                   required={mode === 'import'}
                 />
-              </TabsContent>
-
-              <TabsContent value="new" className="m-0">
-                <div className="p-4 bg-primary/5 rounded-xl border border-primary/10 space-y-2">
-                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                    O sistema usará o <strong>Global API Token</strong> da subconta para criar esta conexão automaticamente no servidor.
-                  </p>
-                  {!config?.api_token && (
-                    <p className="text-[10px] text-destructive font-bold">
-                      ⚠️ Global API Token não configurado!
-                    </p>
-                  )}
-                </div>
               </TabsContent>
             </div>
           </Tabs>
@@ -164,14 +181,8 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
               Cancelar
             </Button>
             <Button type="submit" disabled={isLoading || !name.trim()}>
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : mode === 'new' ? (
-                <Plus className="h-4 w-4 mr-2" />
-              ) : (
-                <Link2 className="h-4 w-4 mr-2" />
-              )}
-              {mode === 'new' ? 'Criar no Servidor' : 'Importar Conexão'}
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : mode === 'new' ? <Plus className="h-4 w-4 mr-2" /> : <Link2 className="h-4 w-4 mr-2" />}
+              {mode === 'new' ? 'Criar no Servidor' : 'Vincular'}
             </Button>
           </DialogFooter>
         </form>
