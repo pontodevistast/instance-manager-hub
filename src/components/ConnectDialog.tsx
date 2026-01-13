@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import type { Instance } from '@/types/instance';
 
 interface ConnectDialogProps {
@@ -20,11 +21,11 @@ interface ConnectDialogProps {
   onSuccess: () => void;
 }
 
-const WEBHOOK_URL = 'https://n8n.webhook.url/action';
+const WEBHOOK_CONNECT_URL = 'https://dev.bslabs.space/webhook/atualiza';
 
 export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: ConnectDialogProps) {
   const [name, setName] = useState(instance.instance_name || '');
-  const [token, setToken] = useState('');
+  const [token, setToken] = useState(instance.instance_token || '');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -34,28 +35,36 @@ export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: Conne
 
     setIsLoading(true);
     try {
-      await fetch(WEBHOOK_URL, {
+      // 1. Atualiza os dados da instância no banco de dados
+      const { error: dbError } = await supabase
+        .from('instances')
+        .update({ 
+          instance_name: name,
+          instance_token: token 
+        })
+        .eq('id', instance.id);
+
+      if (dbError) throw dbError;
+
+      // 2. Chama o webhook do n8n para gerar o QR Code
+      await fetch(WEBHOOK_CONNECT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'connect',
-          instance_id: instance.id,
-          instance_name: name,
-          token: token,
-          location_id: instance.location_id,
+          instanceName: token,
         }),
       });
 
       toast({
-        title: 'Connection request sent',
-        description: `Instance "${name}" connection initiated.`,
+        title: 'Conexão iniciada',
+        description: `Solicitação enviada para a instância "${name}".`,
       });
       onOpenChange(false);
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       toast({
-        title: 'Error',
-        description: 'Failed to send connection request.',
+        title: 'Erro',
+        description: error.message || 'Falha ao enviar solicitação de conexão.',
         variant: 'destructive',
       });
     } finally {
@@ -67,29 +76,28 @@ export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: Conne
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Connect Instance</DialogTitle>
+          <DialogTitle>Configurar Conexão</DialogTitle>
           <DialogDescription>
-            Enter the instance details to establish a connection.
+            Insira o nome e a chave da instância para inicializar o WhatsApp.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Instance Name</Label>
+            <Label htmlFor="name">Nome da Instância (Exibição)</Label>
             <Input
               id="name"
-              placeholder="e.g., Sales Team"
+              placeholder="e.g., Comercial Matriz"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="token">API Token</Label>
+            <Label htmlFor="token">Chave da Instância (Token API)</Label>
             <Input
               id="token"
-              type="password"
-              placeholder="Enter your API token"
+              placeholder="Digite o identificador da instância"
               value={token}
               onChange={(e) => setToken(e.target.value)}
             />
@@ -97,10 +105,10 @@ export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: Conne
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              Cancelar
             </Button>
             <Button type="submit" disabled={!token.trim() || isLoading}>
-              {isLoading ? 'Connecting...' : 'Connect'}
+              {isLoading ? 'Iniciando...' : 'Gerar QR Code'}
             </Button>
           </DialogFooter>
         </form>
