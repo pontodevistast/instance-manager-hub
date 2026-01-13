@@ -48,12 +48,12 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
         });
       }
 
-      // 2. Atualizar Campos Administrativos via API (Usa Admin Token)
+      // 2. Atualizar Campos Administrativos via API
       await uazapiFetch(config.api_base_url, '/instance/updateAdminFields', {
         method: 'POST',
         adminToken: config.api_token || undefined,
         body: {
-          id: instance.instance_token, // O servidor geralmente espera o token ou ID da instância
+          id: instance.instance_token,
           adminField01: adminField01.trim(),
           adminField02: adminField02.trim()
         }
@@ -67,7 +67,7 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
 
       if (error) throw error;
 
-      toast({ title: 'Sucesso', description: 'Instância atualizada no servidor e localmente.' });
+      toast({ title: 'Sucesso', description: 'Instância atualizada com sucesso.' });
       onOpenChange(false);
       onSuccess();
     } catch (error: any) {
@@ -78,16 +78,22 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
   };
 
   const handleDelete = async () => {
-    if (!config?.api_base_url) return;
     setIsLoading(true);
     try {
-      // 1. Deletar no Servidor
-      await uazapiFetch(config.api_base_url, '/instance', {
-        method: 'DELETE',
-        instanceToken: instance.instance_token || undefined
-      });
+      // 1. Tenta deletar no Servidor
+      if (config?.api_base_url && instance.instance_token) {
+        try {
+          await uazapiFetch(config.api_base_url, '/instance', {
+            method: 'DELETE',
+            instanceToken: instance.instance_token
+          });
+        } catch (serverError) {
+          // Se der erro no servidor (instância não existe/fantasma), apenas logamos e continuamos
+          console.warn('Servidor retornou erro na exclusão (provável instância fantasma):', serverError);
+        }
+      }
 
-      // 2. Deletar no Supabase
+      // 2. Deletar no Supabase (Sempre executado, mesmo se o servidor falhar)
       const { error } = await supabase
         .from('instances')
         .delete()
@@ -95,7 +101,11 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
 
       if (error) throw error;
 
-      toast({ title: 'Instância excluída', description: 'A instância foi removida permanentemente.' });
+      toast({ 
+        title: 'Instância removida', 
+        description: 'O registro foi excluído do painel com sucesso.' 
+      });
+      
       onOpenChange(false);
       onSuccess();
     } catch (error: any) {
@@ -167,7 +177,7 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
               <AlertTriangle className="h-5 w-5 shrink-0" />
               <div className="text-sm">
                 <p className="font-bold">Ação Irreversível</p>
-                <p>Isso removerá a instância do servidor permanentemente. Confirmar?</p>
+                <p>Isso removerá a instância permanentemente do seu painel. Confirmar?</p>
               </div>
             </div>
             <DialogFooter className="gap-2">
