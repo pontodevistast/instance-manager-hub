@@ -3,7 +3,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ConnectDialog } from '@/components/ConnectDialog';
-import { Smartphone, Unplug } from 'lucide-react';
+import { Smartphone, Unplug, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Instance } from '@/types/instance';
 
@@ -33,14 +33,13 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
       });
 
       toast({
-        title: 'Disconnect request sent',
-        description: `Instance "${instance.instance_name}" will be disconnected.`,
+        title: 'Solicitação de desconexão enviada',
+        description: 'A instância será desconectada em breve.',
       });
-      onRefresh();
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to send disconnect request.',
+        title: 'Erro',
+        description: 'Falha ao enviar solicitação.',
         variant: 'destructive',
       });
     } finally {
@@ -50,7 +49,7 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
 
   return (
     <>
-      <Card className="flex flex-col">
+      <Card className="flex flex-col overflow-hidden">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -58,7 +57,7 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
                 <Smartphone className="w-5 h-5 text-primary" />
               </div>
               <CardTitle className="text-base font-semibold leading-tight">
-                {instance.instance_name || 'Unnamed Instance'}
+                {instance.instance_name || 'Instância sem nome'}
               </CardTitle>
             </div>
             <StatusBadge status={instance.status} />
@@ -66,20 +65,34 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
         </CardHeader>
 
         <CardContent className="flex-1 pb-3">
+          {instance.status === 'disconnected' && instance.qr_code ? (
+            <div className="mb-4 flex flex-col items-center justify-center p-4 bg-white rounded-lg border border-dashed border-gray-200">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Escaneie o QR Code</p>
+              <img 
+                src={instance.qr_code} 
+                alt="WhatsApp QR Code" 
+                className="w-48 h-48 object-contain"
+              />
+              <Button variant="ghost" size="sm" className="mt-2 text-xs" onClick={onRefresh}>
+                <RefreshCw className="w-3 h-3 mr-1" /> Atualizar
+              </Button>
+            </div>
+          ) : null}
+
           <div className="text-sm text-muted-foreground space-y-1">
             <p className="truncate">
-              <span className="font-medium">ID:</span> {instance.id.slice(0, 8)}...
+              <span className="font-medium text-foreground">ID:</span> {instance.id.slice(0, 8)}...
             </p>
             {instance.last_heartbeat && (
               <p>
-                <span className="font-medium">Last seen:</span>{' '}
+                <span className="font-medium text-foreground">Visto por último:</span>{' '}
                 {new Date(instance.last_heartbeat).toLocaleString()}
               </p>
             )}
           </div>
         </CardContent>
 
-        <CardFooter className="pt-3 border-t">
+        <CardFooter className="pt-3 border-t bg-muted/20">
           {instance.status === 'connected' ? (
             <Button
               variant="destructive"
@@ -88,12 +101,12 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
               disabled={isLoading}
             >
               <Unplug className="w-4 h-4 mr-2" />
-              Disconnect
+              Desconectar
             </Button>
           ) : (
-            <Button className="w-full" onClick={() => setIsConnectOpen(true)}>
+            <Button className="w-full" onClick={() => setIsConnectOpen(true)} disabled={isLoading}>
               <Smartphone className="w-4 h-4 mr-2" />
-              Connect Instance
+              Conectar WhatsApp
             </Button>
           )}
         </CardFooter>

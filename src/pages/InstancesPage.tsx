@@ -1,81 +1,62 @@
-import { useState, useEffect } from 'react';
 import { useLocation } from '@/contexts/LocationContext';
 import { InstanceCard } from '@/components/InstanceCard';
 import { InstanceCardSkeleton } from '@/components/InstanceCardSkeleton';
 import { Button } from '@/components/ui/button';
 import { Plus, RefreshCw } from 'lucide-react';
-import type { Instance } from '@/types/instance';
-
-// Mock data for prototype (replace with Supabase query)
-const mockInstances: Instance[] = [
-  {
-    id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-    created_at: new Date().toISOString(),
-    location_id: 'loc_demo',
-    instance_name: 'Sales Team',
-    instance_token: null,
-    status: 'connected',
-    qr_code: null,
-    last_heartbeat: new Date().toISOString(),
-  },
-  {
-    id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
-    created_at: new Date().toISOString(),
-    location_id: 'loc_demo',
-    instance_name: 'Support Team',
-    instance_token: null,
-    status: 'disconnected',
-    qr_code: null,
-    last_heartbeat: null,
-  },
-  {
-    id: 'c3d4e5f6-a7b8-9012-cdef-123456789012',
-    created_at: new Date().toISOString(),
-    location_id: 'loc_demo',
-    instance_name: 'Marketing',
-    instance_token: null,
-    status: 'error',
-    qr_code: null,
-    last_heartbeat: new Date(Date.now() - 3600000).toISOString(),
-  },
-];
+import { useInstances } from '@/hooks/use-instances';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
 
 export default function InstancesPage() {
   const { locationId } = useLocation();
-  const [instances, setInstances] = useState<Instance[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { instances, isLoading, refetch } = useInstances(locationId);
+  const [isCreating, setIsCreating] = useState(false);
+  const { toast } = useToast();
 
-  const fetchInstances = async () => {
-    setIsLoading(true);
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+  const handleAddInstance = async () => {
+    if (!locationId) return;
     
-    // Filter mock data by location_id
-    const filtered = mockInstances.filter(
-      (inst) => inst.location_id === locationId || locationId === 'loc_demo'
-    );
-    setInstances(filtered);
-    setIsLoading(false);
-  };
+    setIsCreating(true);
+    try {
+      const { error } = await supabase.from('instances').insert({
+        location_id: locationId,
+        instance_name: 'Nova Instância',
+        status: 'disconnected',
+      });
 
-  useEffect(() => {
-    fetchInstances();
-  }, [locationId]);
+      if (error) throw error;
+      
+      toast({
+        title: 'Instância criada',
+        description: 'Agora você pode configurá-la para conectar.',
+      });
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao criar',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Instances</h1>
-          <p className="text-muted-foreground">Manage your WhatsApp instances</p>
+          <h1 className="text-2xl font-bold tracking-tight">Instâncias</h1>
+          <p className="text-muted-foreground">Gerencie suas conexões do WhatsApp</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={fetchInstances}>
-            <RefreshCw className="h-4 w-4" />
+          <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isLoading}>
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
-          <Button>
+          <Button onClick={handleAddInstance} disabled={isCreating || !locationId}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Instance
+            Adicionar Instância
           </Button>
         </div>
       </div>
@@ -89,14 +70,16 @@ export default function InstancesPage() {
           </>
         ) : instances.length > 0 ? (
           instances.map((instance) => (
-            <InstanceCard key={instance.id} instance={instance} onRefresh={fetchInstances} />
+            <InstanceCard key={instance.id} instance={instance} onRefresh={refetch} />
           ))
         ) : (
-          <div className="col-span-full text-center py-12">
-            <p className="text-muted-foreground">No instances found for this location.</p>
-            <Button className="mt-4">
+          <div className="col-span-full flex flex-col items-center justify-center py-20 bg-background rounded-xl border border-dashed border-gray-300">
+            <Smartphone className="h-12 w-12 text-muted-foreground/50 mb-4" />
+            <h3 className="text-lg font-medium">Nenhuma instância encontrada</h3>
+            <p className="text-muted-foreground mb-6">Crie sua primeira instância para começar a usar.</p>
+            <Button onClick={handleAddInstance} disabled={isCreating}>
               <Plus className="h-4 w-4 mr-2" />
-              Create your first instance
+              Criar primeira instância
             </Button>
           </div>
         )}
