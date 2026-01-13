@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useLocation } from '@/contexts/LocationContext';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,12 +7,12 @@ import { MessageSquare } from 'lucide-react';
 
 export function LoginView() {
   const [inputValue, setInputValue] = useState('');
-  const { setLocationId } = useLocation();
+  const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (inputValue.trim()) {
-      setLocationId(inputValue.trim());
+      navigate(`/${inputValue.trim()}/instances`);
     }
   };
 
@@ -26,7 +26,7 @@ export function LoginView() {
           <div>
             <CardTitle className="text-2xl font-bold">WhatsApp Manager</CardTitle>
             <CardDescription className="mt-2">
-              Enter your Location ID to access the dashboard
+              Digite seu Location ID para acessar o painel
             </CardDescription>
           </div>
         </CardHeader>
@@ -35,14 +35,14 @@ export function LoginView() {
             <div className="space-y-2">
               <Input
                 type="text"
-                placeholder="Enter Location ID"
+                placeholder="Digite o Location ID"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 className="h-12"
               />
             </div>
             <Button type="submit" className="w-full h-12" disabled={!inputValue.trim()}>
-              Access Dashboard
+              Acessar Painel
             </Button>
           </form>
         </CardContent>

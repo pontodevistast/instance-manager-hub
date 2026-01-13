@@ -15,14 +15,14 @@ import {
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 
-const menuItems = [
-  { title: 'Instances', url: '/dashboard', icon: Smartphone },
-  { title: 'Logs', url: '/dashboard/logs', icon: FileText },
-  { title: 'Settings', url: '/dashboard/settings', icon: Settings },
-];
-
 export function AppSidebar() {
   const { locationId, logout } = useLocation();
+
+  const menuItems = [
+    { title: 'Instâncias', url: `/${locationId}/instances`, icon: Smartphone },
+    { title: 'Logs', url: `/${locationId}/logs`, icon: FileText },
+    { title: 'Configurações', url: `/${locationId}/settings`, icon: Settings },
+  ];
 
   return (
     <Sidebar className="border-r border-sidebar-border">
@@ -50,7 +50,6 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
-                      end={item.url === '/dashboard'}
                       className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors hover:bg-sidebar-accent"
                       activeClassName="bg-sidebar-accent text-primary font-medium"
                     >
