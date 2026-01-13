@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useSubaccountConfig } from '@/hooks/use-subaccount-config';
 import { uazapiFetch } from '@/lib/uazapi';
-import { Loader2, Trash2, AlertTriangle, Save, Link2Off } from 'lucide-react';
+import { Loader2, Trash2, AlertTriangle, Save, Link2Off, Unplug, Smartphone } from 'lucide-react';
 import type { Instance } from '@/types/instance';
 
 interface EditInstanceDialogProps {
@@ -29,6 +29,7 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
   const [adminField01, setAdminField01] = useState(instance.location_id || '');
   const [adminField02, setAdminField02] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [confirmType, setConfirmType] = useState<'none' | 'unlink' | 'delete'>('none');
   
   const { toast } = useToast();
@@ -66,6 +67,30 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
     }
   };
 
+  const handleWhatsAppLogout = async () => {
+    if (!config?.api_base_url || !instance.instance_token) return;
+    setIsLoggingOut(true);
+    try {
+      await uazapiFetch(config.api_base_url, '/instance/logout', {
+        method: 'POST',
+        instanceToken: instance.instance_token
+      }).catch(() => {
+        return uazapiFetch(config.api_base_url!, '/instance/disconnect', {
+          method: 'POST',
+          instanceToken: instance.instance_token!
+        });
+      });
+
+      await supabase.from('instances').update({ status: 'disconnected', qr_code: null }).eq('id', instance.id);
+      toast({ title: 'Sessão Encerrada', description: 'WhatsApp liberado para nova conexão.' });
+      onSuccess();
+    } catch (error: any) {
+      toast({ title: 'Erro ao deslogar', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
   const processRemoval = async (permanent: boolean) => {
     setIsLoading(true);
     try {
@@ -76,7 +101,7 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
             instanceToken: instance.instance_token
           });
         } catch (e) {
-          console.warn('Erro ao deletar no servidor (instância pode não existir):', e);
+          console.warn('Erro ao deletar no servidor:', e);
         }
       }
 
@@ -85,7 +110,7 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
 
       toast({ 
         title: permanent ? 'Excluída permanentemente' : 'Desvinculada do painel',
-        description: permanent ? 'A instância foi removida do servidor e do painel.' : 'A instância continua no servidor, mas saiu deste painel.'
+        description: permanent ? 'A instância foi removida do servidor e do painel.' : 'A instância saiu deste painel, mas continua no servidor.'
       });
       onOpenChange(false);
       onSuccess();
@@ -112,15 +137,23 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-[10px] uppercase">Admin Field 01</Label>
-                <Input value={adminField01} onChange={(e) => setAdminField01(e.target.value)} className="h-8 text-xs font-mono" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[10px] uppercase">Admin Field 02</Label>
-                <Input value={adminField02} onChange={(e) => setAdminField02(e.target.value)} className="h-8 text-xs font-mono" />
-              </div>
+            <div className="bg-muted/30 p-3 rounded-lg border space-y-3">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-2">
+                <Unplug className="h-3 w-3" /> Sessão WhatsApp
+              </p>
+              <Button 
+                type="button" 
+                variant="secondary" 
+                className="w-full h-8 text-[11px] font-bold bg-white dark:bg-slate-900" 
+                onClick={handleWhatsAppLogout}
+                disabled={isLoggingOut}
+              >
+                {isLoggingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Link2Off className="h-3.5 w-3.5 mr-2" />}
+                ENCERRAR SESSÃO NO CELULAR
+              </Button>
+              <p className="text-[9px] text-muted-foreground leading-tight">
+                Use isso se o WhatsApp estiver "preso" ou se precisar liberar para um novo QR Code sem apagar a instância.
+              </p>
             </div>
 
             <div className="border-t pt-4 space-y-2">
@@ -128,21 +161,21 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
                 <Button 
                   type="button" 
                   variant="outline" 
-                  className="flex-1 text-xs" 
+                  className="flex-1 text-[11px] h-9" 
                   onClick={() => setConfirmType('unlink')}
                 >
-                  <Link2Off className="h-3.5 w-3.5 mr-2" /> Desvincular
+                  Desvincular Painel
                 </Button>
                 <Button 
                   type="button" 
                   variant="outline" 
-                  className="flex-1 text-xs text-destructive hover:bg-destructive/10" 
+                  className="flex-1 text-[11px] h-9 text-destructive hover:bg-destructive/10" 
                   onClick={() => setConfirmType('delete')}
                 >
-                  <Trash2 className="h-3.5 w-3.5 mr-2" /> Excluir Servidor
+                  Excluir do Servidor
                 </Button>
               </div>
-              <Button className="w-full" onClick={handleUpdate} disabled={isLoading || !name.trim()}>
+              <Button className="w-full h-10" onClick={handleUpdate} disabled={isLoading || !name.trim()}>
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} Salvar Alterações
               </Button>
             </div>
@@ -160,8 +193,8 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
                 </p>
                 <p className="mt-1 opacity-90 leading-relaxed">
                   {confirmType === 'delete' 
-                    ? 'Esta ação apagará a instância permanentemente do servidor UaZapi e do painel. Não poderá ser recuperada.' 
-                    : 'A instância será removida deste painel, mas continuará existindo no servidor UaZapi. Você poderá importá-la novamente depois.'}
+                    ? 'Esta ação apagará a instância permanentemente do servidor e do painel.' 
+                    : 'A instância será removida deste painel, mas continuará existindo no servidor.'}
                 </p>
               </div>
             </div>
@@ -177,7 +210,7 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
                 className="flex-1"
               >
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                {confirmType === 'delete' ? 'Sim, Excluir Tudo' : 'Sim, Desvincular'}
+                Confirmar
               </Button>
             </DialogFooter>
           </div>

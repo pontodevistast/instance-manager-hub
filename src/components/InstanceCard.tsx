@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ConnectDialog } from '@/components/ConnectDialog';
 import { EditInstanceDialog } from '@/components/EditInstanceDialog';
-import { Smartphone, Unplug, RefreshCw, CheckCircle2, Settings2, Loader2, QrCode } from 'lucide-react';
+import { Smartphone, Unplug, RefreshCw, CheckCircle2, Settings2, Loader2, QrCode, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useSubaccountConfig } from '@/hooks/use-subaccount-config';
@@ -35,12 +35,10 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
         instanceToken: instance.instance_token
       });
 
-      // Mapeamento de status baseado na resposta da API
       const apiStatus = data.instance?.status === 'connected' ? 'connected' : 'disconnected';
       
       if (apiStatus !== liveStatus) {
         setLiveStatus(apiStatus);
-        // Atualiza o Supabase se o status divergir
         await supabase
           .from('instances')
           .update({ status: apiStatus })
@@ -50,13 +48,15 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
       if (!silent) toast({ title: 'Status Atualizado', description: `A instância está ${apiStatus}.` });
     } catch (error: any) {
       console.error('Erro ao checar status:', error);
-      if (!silent) toast({ title: 'Erro de Sincronização', description: error.message, variant: 'destructive' });
+      if (!silent) {
+        setLiveStatus('error');
+        toast({ title: 'Erro de Sincronização', description: error.message, variant: 'destructive' });
+      }
     } finally {
       if (!silent) setIsSyncing(false);
     }
   }, [config, instance.instance_token, instance.id, liveStatus, toast]);
 
-  // Checagem automática ao montar
   useEffect(() => {
     checkRealStatus(true);
   }, []);
@@ -66,9 +66,16 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
     
     setIsDisconnecting(true);
     try {
-      await uazapiFetch(config.api_base_url, '/instance/disconnect', {
+      // Tenta logout para limpar a sessão no servidor
+      await uazapiFetch(config.api_base_url, '/instance/logout', {
         method: 'POST',
         instanceToken: instance.instance_token
+      }).catch(() => {
+        // Fallback para disconnect se logout não existir/falhar
+        return uazapiFetch(config.api_base_url!, '/instance/disconnect', {
+          method: 'POST',
+          instanceToken: instance.instance_token!
+        });
       });
 
       await supabase
@@ -77,7 +84,7 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
         .eq('id', instance.id);
 
       setLiveStatus('disconnected');
-      toast({ title: 'Desconectado', description: 'WhatsApp desvinculado com sucesso.' });
+      toast({ title: 'Desconectado', description: 'WhatsApp desvinculado e sessão encerrada.' });
       onRefresh();
     } catch (error: any) {
       toast({ title: 'Erro ao desconectar', description: error.message, variant: 'destructive' });
@@ -127,6 +134,14 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
               <p className="text-sm font-semibold text-green-600">Conectado</p>
               <p className="text-[11px] text-muted-foreground mt-1">Sincronizado com API real</p>
             </div>
+          ) : liveStatus === 'error' ? (
+             <div className="text-center">
+              <div className="mx-auto w-12 h-12 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-3 border border-red-200">
+                <AlertCircle className="w-6 h-6 text-red-500" />
+              </div>
+              <p className="text-sm font-medium text-red-600">Erro na Sessão</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Sessão travada ou inválida</p>
+            </div>
           ) : (
             <div className="text-center">
               <div className="mx-auto w-12 h-12 bg-slate-50 dark:bg-slate-900 rounded-full flex items-center justify-center mb-3 border border-dashed border-slate-200">
@@ -140,7 +155,7 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
 
         <CardFooter className="p-4 border-t border-slate-50 dark:border-slate-900 bg-slate-50/50 dark:bg-slate-900/30">
           <div className="flex w-full gap-2">
-            {liveStatus === 'connected' ? (
+            {liveStatus !== 'disconnected' ? (
               <Button 
                 variant="destructive" 
                 className="w-full h-9 text-xs font-bold"
@@ -148,7 +163,7 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
                 disabled={isDisconnecting}
               >
                 {isDisconnecting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Unplug className="w-3.5 h-3.5 mr-2" />}
-                DESCONECTAR
+                ENCERRAR SESSÃO
               </Button>
             ) : (
               <>
