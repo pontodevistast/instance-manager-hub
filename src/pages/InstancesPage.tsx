@@ -2,7 +2,7 @@ import { useLocation } from '@/contexts/LocationContext';
 import { InstanceCard } from '@/components/InstanceCard';
 import { InstanceCardSkeleton } from '@/components/InstanceCardSkeleton';
 import { Button } from '@/components/ui/button';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw, Smartphone } from 'lucide-react';
 import { useInstances } from '@/hooks/use-instances';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
