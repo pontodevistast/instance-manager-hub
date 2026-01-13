@@ -3,7 +3,8 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ConnectDialog } from '@/components/ConnectDialog';
-import { Smartphone, Unplug, RefreshCw, CheckCircle2, Copy, Send, MoreVertical, Trash2 } from 'lucide-react';
+import { EditInstanceDialog } from '@/components/EditInstanceDialog';
+import { Smartphone, Unplug, RefreshCw, CheckCircle2, Copy, Send, Settings2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Instance } from '@/types/instance';
 import { cn } from '@/lib/utils';
@@ -15,6 +16,7 @@ interface InstanceCardProps {
 
 export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
   const [isConnectOpen, setIsConnectOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -60,7 +62,17 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
                 </div>
               </div>
             </div>
-            <StatusBadge status={instance.status} />
+            <div className="flex flex-col items-end gap-2">
+              <StatusBadge status={instance.status} />
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => setIsEditOpen(true)}
+              >
+                <Settings2 className="h-4 w-4 text-slate-400" />
+              </Button>
+            </div>
           </div>
         </CardHeader>
 
@@ -120,6 +132,13 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
       <ConnectDialog
         open={isConnectOpen}
         onOpenChange={setIsConnectOpen}
+        instance={instance}
+        onSuccess={onRefresh}
+      />
+
+      <EditInstanceDialog
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
         instance={instance}
         onSuccess={onRefresh}
       />
