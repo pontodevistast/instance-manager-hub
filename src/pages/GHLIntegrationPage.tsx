@@ -31,7 +31,7 @@ export default function GHLIntegrationPage() {
           .from('ghl_uazapi_config')
           .select('*')
           .eq('location_id', locationId)
-          .single();
+          .maybeSingle();
 
         if (data) {
           setConfig({
@@ -43,7 +43,7 @@ export default function GHLIntegrationPage() {
           });
         }
       } catch (err) {
-        console.error('Erro ao buscar config GHL:', err);
+        console.error('Erro ao buscar config:', err);
       } finally {
         setIsLoading(false);
       }
@@ -59,9 +59,15 @@ export default function GHLIntegrationPage() {
         .from('ghl_uazapi_config')
         .upsert({
           location_id: locationId,
-          ...config,
+          ghl_token: config.ghl_token,
+          account_name: config.account_name,
+          api_base_url: config.api_base_url,
+          api_token: config.api_token,
+          ignore_groups: config.ignore_groups,
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'location_id' });
+        }, { 
+          onConflict: 'location_id' 
+        });
 
       if (error) throw error;
 
@@ -72,7 +78,7 @@ export default function GHLIntegrationPage() {
     } catch (err: any) {
       toast({
         title: 'Erro ao salvar',
-        description: err.message,
+        description: err.message || 'Erro desconhecido ao salvar.',
         variant: 'destructive',
       });
     } finally {
@@ -91,8 +97,8 @@ export default function GHLIntegrationPage() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Integração GoHighLevel</h1>
-        <p className="text-muted-foreground">Configure os dados globais da sua subconta GHL</p>
+        <h1 className="text-2xl font-bold tracking-tight">Integração</h1>
+        <p className="text-muted-foreground">Configure os dados globais da sua subconta e API</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
