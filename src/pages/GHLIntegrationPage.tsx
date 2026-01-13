@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, ExternalLink } from 'lucide-react';
+import { Loader2, Save } from 'lucide-react';
 
 export default function GHLIntegrationPage() {
   const { locationId } = useLocation();
@@ -21,7 +21,6 @@ export default function GHLIntegrationPage() {
     api_base_url: 'https://api.uazapi.com',
     api_token: '',
     ignore_groups: true,
-    responder_com_instacia: false,
   });
 
   useEffect(() => {
@@ -41,7 +40,6 @@ export default function GHLIntegrationPage() {
             api_base_url: data.api_base_url || 'https://api.uazapi.com',
             api_token: data.api_token || '',
             ignore_groups: data.ignore_groups ?? true,
-            responder_com_instacia: data.responder_com_instacia ?? false,
           });
         }
       } catch (err) {
@@ -168,16 +166,6 @@ export default function GHLIntegrationPage() {
             <Switch 
               checked={config.ignore_groups}
               onCheckedChange={(checked) => setConfig({...config, ignore_groups: checked})}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Forçar Respostas</Label>
-              <p className="text-sm text-muted-foreground">Responder sempre por esta subconta no GHL.</p>
-            </div>
-            <Switch 
-              checked={config.responder_com_instacia}
-              onCheckedChange={(checked) => setConfig({...config, responder_com_instacia: checked})}
             />
           </div>
         </CardContent>
