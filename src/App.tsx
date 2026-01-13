@@ -2,14 +2,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LocationProvider } from "@/contexts/LocationContext";
-import { LoginView } from "@/components/LoginView";
 import Dashboard from "@/pages/Dashboard";
 import InstancesPage from "@/pages/InstancesPage";
 import GHLIntegrationPage from "@/pages/GHLIntegrationPage";
 import LogsPage from "@/pages/LogsPage";
 import SettingsPage from "@/pages/SettingsPage";
+import ManagerPage from "@/pages/ManagerPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,8 +21,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={<LoginView />} />
+          <Route path="/" element={<ManagerPage />} />
           
           <Route 
             path="/:locationId" 
@@ -32,7 +31,7 @@ const App = () => (
               </LocationProvider>
             }
           >
-            <Route index element={<Navigate to="instances" replace />} />
+            <Route index element={<InstancesPage />} />
             <Route path="instances" element={<InstancesPage />} />
             <Route path="ghl" element={<GHLIntegrationPage />} />
             <Route path="logs" element={<LogsPage />} />

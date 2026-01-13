@@ -16,12 +16,10 @@ export default function GHLIntegrationPage() {
   const { toast } = useToast();
   
   const [config, setConfig] = useState({
-    user_id: '',
     ghl_token: '',
     account_name: '',
     api_base_url: 'https://api.uazapi.com',
     api_token: '',
-    api_instance_name: '',
     ignore_groups: true,
     responder_com_instacia: false,
   });
@@ -38,12 +36,10 @@ export default function GHLIntegrationPage() {
 
         if (data) {
           setConfig({
-            user_id: data.user_id || '',
             ghl_token: data.ghl_token || '',
             account_name: data.account_name || '',
             api_base_url: data.api_base_url || 'https://api.uazapi.com',
             api_token: data.api_token || '',
-            api_instance_name: data.api_instance_name || '',
             ignore_groups: data.ignore_groups ?? true,
             responder_com_instacia: data.responder_com_instacia ?? false,
           });
@@ -98,27 +94,19 @@ export default function GHLIntegrationPage() {
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Integração GoHighLevel</h1>
-        <p className="text-muted-foreground">Conecte sua subconta GHL ao servidor UaZapi</p>
+        <p className="text-muted-foreground">Configure os dados globais da sua subconta GHL</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">GoHighLevel (GHL)</CardTitle>
-            <CardDescription>Dados da sua subconta</CardDescription>
+            <CardDescription>Credenciais da subconta</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>Location ID</Label>
               <Input value={locationId || ''} disabled className="bg-muted" />
-            </div>
-            <div className="space-y-2">
-              <Label>User ID</Label>
-              <Input 
-                placeholder="ID do usuário GHL" 
-                value={config.user_id}
-                onChange={(e) => setConfig({...config, user_id: e.target.value})}
-              />
             </div>
             <div className="space-y-2">
               <Label>Bearer Token</Label>
@@ -130,9 +118,9 @@ export default function GHLIntegrationPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Nome da Subconta</Label>
+              <Label>Nome de Exibição</Label>
               <Input 
-                placeholder="Ex: Minha Clínica" 
+                placeholder="Ex: Unidade Centro" 
                 value={config.account_name}
                 onChange={(e) => setConfig({...config, account_name: e.target.value})}
               />
@@ -142,8 +130,8 @@ export default function GHLIntegrationPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">UaZapi</CardTitle>
-            <CardDescription>Configurações do servidor API</CardDescription>
+            <CardTitle className="text-lg">Servidor UaZapi</CardTitle>
+            <CardDescription>Configurações globais da API</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -155,20 +143,12 @@ export default function GHLIntegrationPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>API Token</Label>
+              <Label>Global API Token</Label>
               <Input 
                 type="password"
-                placeholder="Token do servidor UaZapi" 
+                placeholder="Token mestre do servidor" 
                 value={config.api_token}
                 onChange={(e) => setConfig({...config, api_token: e.target.value})}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Nome da Instância</Label>
-              <Input 
-                placeholder="Ex: clinica-whatsapp" 
-                value={config.api_instance_name}
-                onChange={(e) => setConfig({...config, api_instance_name: e.target.value})}
               />
             </div>
           </CardContent>
@@ -177,8 +157,7 @@ export default function GHLIntegrationPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Configurações Adicionais</CardTitle>
-          <CardDescription>Comportamento da integração</CardDescription>
+          <CardTitle className="text-lg">Comportamento</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center justify-between">
@@ -193,8 +172,8 @@ export default function GHLIntegrationPage() {
           </div>
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Responder com esta instância</Label>
-              <p className="text-sm text-muted-foreground">Força o envio de respostas através desta conexão específica.</p>
+              <Label>Forçar Respostas</Label>
+              <p className="text-sm text-muted-foreground">Responder sempre por esta subconta no GHL.</p>
             </div>
             <Switch 
               checked={config.responder_com_instacia}
@@ -205,9 +184,6 @@ export default function GHLIntegrationPage() {
       </Card>
 
       <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => window.open('https://app.gohighlevel.com', '_blank')}>
-          Abrir GHL <ExternalLink className="ml-2 h-4 w-4" />
-        </Button>
         <Button onClick={handleSave} disabled={isSaving}>
           {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
           Salvar Configurações

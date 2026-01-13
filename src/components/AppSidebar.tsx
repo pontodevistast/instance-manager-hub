@@ -1,6 +1,8 @@
-import { Smartphone, FileText, Settings, LogOut, MessageSquare, Zap } from 'lucide-react';
+import { Smartphone, FileText, Settings, LayoutGrid, MessageSquare, Zap, ChevronDown } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from '@/contexts/LocationContext';
+import { useSubaccounts } from '@/hooks/use-subaccounts';
+import { useNavigate } from 'react-router-dom';
 import {
   Sidebar,
   SidebarContent,
@@ -13,10 +15,18 @@ import {
   SidebarFooter,
   SidebarHeader,
 } from '@/components/ui/sidebar';
-import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 
 export function AppSidebar() {
-  const { locationId, logout } = useLocation();
+  const { locationId } = useLocation();
+  const { data: subaccounts } = useSubaccounts();
+  const navigate = useNavigate();
 
   const menuItems = [
     { title: 'Instâncias', url: `/${locationId}/instances`, icon: Smartphone },
@@ -28,22 +38,47 @@ export function AppSidebar() {
   return (
     <Sidebar className="border-r border-sidebar-border">
       <SidebarHeader className="p-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-            <MessageSquare className="w-5 h-5 text-primary" />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-semibold text-sm">WhatsApp Manager</span>
-            <span className="text-xs text-muted-foreground truncate max-w-[140px]">
-              {locationId}
-            </span>
-          </div>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton className="h-12 border shadow-sm">
+              <div className="flex items-center gap-3 w-full">
+                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shrink-0">
+                  <MessageSquare className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex flex-col items-start overflow-hidden">
+                  <span className="font-semibold text-xs truncate w-full">Subconta Atual</span>
+                  <span className="text-[10px] text-muted-foreground truncate w-full">
+                    {locationId}
+                  </span>
+                </div>
+                <ChevronDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
+              </div>
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-[240px]" align="start">
+            <DropdownMenuItem onClick={() => navigate('/')}>
+              <LayoutGrid className="h-4 w-4 mr-2" />
+              Ver Todas (Gestor)
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <div className="max-h-[300px] overflow-y-auto">
+              {subaccounts?.map(id => (
+                <DropdownMenuItem 
+                  key={id} 
+                  onClick={() => navigate(`/${id}/instances`)}
+                  className={id === locationId ? "bg-muted font-medium" : ""}
+                >
+                  {id}
+                </DropdownMenuItem>
+              ))}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
+          <SidebarGroupLabel>Menu da Subconta</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
@@ -66,14 +101,9 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t border-sidebar-border">
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive"
-          onClick={logout}
-        >
-          <LogOut className="h-4 w-4" />
-          <span>Logout</span>
-        </Button>
+        <div className="text-[10px] text-center text-muted-foreground uppercase tracking-widest font-semibold">
+          Manager v1.0
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
