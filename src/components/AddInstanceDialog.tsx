@@ -57,29 +57,32 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
       // 1. Criar no servidor UaZapi
       if (mode === 'new') {
         if (!config?.api_token || !config?.api_base_url) {
-          throw new Error('Configuração de API (Base URL ou Token) não encontrada para esta subconta.');
+          throw new Error('Configuração de API (Base URL ou Admin Token) não encontrada para esta subconta.');
         }
 
-        const response = await fetch(`${config.api_base_url}/instance/create`, {
+        const response = await fetch(`${config.api_base_url}/instance/init`, {
           method: 'POST',
           headers: {
+            'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.api_token}`
+            'admintoken': config.api_token // Usando o cabeçalho correto solicitado
           },
           body: JSON.stringify({
             name: name.trim(),
             systemName: systemName || 'uazapiGO',
-            adminField01: locationId // Usamos para identificar a qual subconta pertence no servidor
+            adminField01: locationId,
+            fingerprintProfile: "chrome",
+            browser: "chrome"
           })
         });
 
         if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.message || 'Erro ao criar instância no servidor.');
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.message || 'Erro ao criar instância. Verifique se o admintoken está correto.');
         }
 
         const data = await response.json();
-        // Conforme o exemplo: o token pode estar em data.token ou data.instance.token
+        // Captura o token retornado pelo servidor
         finalInstanceToken = data.token || data.instance?.token;
 
         if (!finalInstanceToken) {
