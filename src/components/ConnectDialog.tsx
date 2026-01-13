@@ -13,8 +13,9 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 import type { Instance } from '@/types/instance';
-import { Loader2, RefreshCw, CheckCircle2, Copy, Smartphone } from 'lucide-react';
+import { Loader2, RefreshCw, CheckCircle2, Copy, AlertCircle } from 'lucide-react';
 
 interface ConnectDialogProps {
   open: boolean;
@@ -23,45 +24,58 @@ interface ConnectDialogProps {
   onSuccess: () => void;
 }
 
-const WEBHOOK_CONNECT_URL = 'https://dev.bslabs.space/webhook/atualiza';
 const QR_TIMEOUT_SECONDS = 40;
 
-type ConnectionState = 'idle' | 'loading_qr' | 'waiting_for_scan' | 'connected' | 'expired';
+type ConnectionState = 'idle' | 'loading_qr' | 'waiting_for_scan' | 'connected' | 'expired' | 'no_settings';
 
 export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: ConnectDialogProps) {
   const [name, setName] = useState(instance.instance_name || '');
-  const [token, setToken] = useState(instance.instance_token || '');
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
   const [timeLeft, setTimeLeft] = useState(QR_TIMEOUT_SECONDS);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
-  // Função para buscar o QR Code
-  const fetchQRCode = useCallback(async (targetToken: string) => {
-    if (!targetToken) return;
+  // Função para buscar o QR Code usando as configurações globais
+  const fetchQRCode = useCallback(async (instanceName: string) => {
+    if (!instanceName) return;
     
     setConnectionState('loading_qr');
     try {
-      const response = await fetch(WEBHOOK_CONNECT_URL, {
+      // 1. Buscar configurações globais
+      const { data: settings } = await supabase
+        .from('integration_settings')
+        .select('*')
+        .eq('location_id', instance.location_id)
+        .maybeSingle();
+
+      if (!settings || !settings.global_api_token) {
+        setConnectionState('no_settings');
+        return;
+      }
+
+      // 2. Chamar Webhook ou API diretamente
+      // Aqui usamos o endpoint padrão do UaZapi se o webhook não estiver definido
+      const apiUrl = settings.api_base_url || 'https://api.uazapi.com';
+      
+      const response = await fetch(`${apiUrl}/instance/connect`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instanceName: targetToken }),
+        headers: { 
+          'Content-Type': 'application/json',
+          'apikey': settings.global_api_token
+        },
+        body: JSON.stringify({ instanceName }),
       });
 
-      if (!response.ok) throw new Error('Falha ao gerar QR Code.');
+      if (!response.ok) throw new Error('Falha ao gerar QR Code na API.');
 
-      // O webhook atualiza o banco. Vamos esperar o Realtime ou forçar um refresh visual
-      // No fluxo do n8n, ele costuma retornar o QR ou apenas dar 200 OK.
-      // Se ele retorna o QR, atualizamos aqui, senão o banco fará isso via Realtime.
-      
       setConnectionState('waiting_for_scan');
       setTimeLeft(QR_TIMEOUT_SECONDS);
     } catch (error: any) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
       setConnectionState('idle');
     }
-  }, [toast]);
+  }, [instance.location_id, toast]);
 
-  // Monitora mudança de status para fechar automaticamente
   useEffect(() => {
     if (instance.status === 'connected' && connectionState !== 'connected') {
       setConnectionState('connected');
@@ -72,7 +86,6 @@ export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: Conne
     }
   }, [instance.status, connectionState, onOpenChange, onSuccess]);
 
-  // Efeito de contagem regressiva
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (connectionState === 'waiting_for_scan' && timeLeft > 0) {
@@ -83,40 +96,51 @@ export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: Conne
     return () => clearInterval(timer);
   }, [connectionState, timeLeft]);
 
-  // Iniciar busca de QR se já houver token ao abrir
+  // Se já tem nome, tenta gerar QR ao abrir
   useEffect(() => {
-    if (open && token && connectionState === 'idle') {
-      fetchQRCode(token);
+    if (open && name && connectionState === 'idle') {
+      fetchQRCode(name);
     }
-  }, [open, token, connectionState, fetchQRCode]);
+  }, [open, name, connectionState, fetchQRCode]);
 
-  const handleSaveConfig = async (e: React.FormEvent) => {
+  const handleStartConnection = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token.trim()) return;
+    if (!name.trim()) return;
 
     try {
       const { error } = await supabase
         .from('instances')
-        .update({ instance_name: name, instance_token: token })
+        .update({ instance_name: name })
         .eq('id', instance.id);
 
       if (error) throw error;
-      fetchQRCode(token);
+      fetchQRCode(name);
     } catch (error: any) {
       toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
     }
   };
 
-  const formatQrCode = (qr: string) => {
-    if (!qr) return null;
-    if (qr.startsWith('data:')) return qr;
-    return `data:image/png;base64,${qr}`;
-  };
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(token);
-    toast({ title: 'Copiado!', description: 'Código de emparelhamento copiado.' });
-  };
+  if (connectionState === 'no_settings') {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md text-center py-8">
+          <div className="mx-auto w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mb-4">
+            <AlertCircle className="w-6 h-6 text-amber-600" />
+          </div>
+          <DialogTitle className="mb-2">Configuração Ausente</DialogTitle>
+          <DialogDescription className="mb-6">
+            Você precisa configurar a URL da API e o Token Global antes de conectar instâncias.
+          </DialogDescription>
+          <Button onClick={() => {
+            onOpenChange(false);
+            navigate(`/${instance.location_id}/settings`);
+          }}>
+            Ir para Configurações
+          </Button>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -124,7 +148,7 @@ export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: Conne
         <DialogHeader>
           <DialogTitle>Conectar WhatsApp</DialogTitle>
           <DialogDescription>
-            Siga as instruções para conectar sua instância.
+            Defina o nome da instância para gerar o QR Code.
           </DialogDescription>
         </DialogHeader>
 
@@ -140,18 +164,14 @@ export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: Conne
           </div>
         ) : (
           <div className="space-y-6">
-            {!instance.instance_token ? (
-              <form onSubmit={handleSaveConfig} className="space-y-4">
+            {!instance.instance_name || connectionState === 'idle' ? (
+              <form onSubmit={handleStartConnection} className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Nome Amigável</Label>
+                  <Label>Nome da Instância</Label>
                   <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: WhatsApp Vendas" />
                 </div>
-                <div className="space-y-2">
-                  <Label>Token da Instância (UaZapi)</Label>
-                  <Input value={token} onChange={(e) => setToken(e.target.value)} placeholder="Digite o identificador" />
-                </div>
-                <Button type="submit" className="w-full" disabled={!token.trim()}>
-                  Próximo Passo: Gerar QR Code
+                <Button type="submit" className="w-full" disabled={!name.trim()}>
+                  Gerar QR Code
                 </Button>
               </form>
             ) : (
@@ -168,7 +188,7 @@ export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: Conne
                     }`}>
                       {instance.qr_code ? (
                         <img 
-                          src={formatQrCode(instance.qr_code)!} 
+                          src={instance.qr_code.startsWith('data:') ? instance.qr_code : `data:image/png;base64,${instance.qr_code}`} 
                           alt="QR Code" 
                           className={`w-48 h-48 object-contain transition-all ${connectionState === 'expired' ? 'blur-sm opacity-50' : ''}`}
                         />
@@ -182,7 +202,7 @@ export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: Conne
                             variant="secondary" 
                             size="sm" 
                             className="shadow-lg"
-                            onClick={() => fetchQRCode(token)}
+                            onClick={() => fetchQRCode(name)}
                           >
                             <RefreshCw className="w-4 h-4 mr-2" />
                             Atualizar QR
@@ -200,22 +220,8 @@ export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: Conne
                       <span>{timeLeft}s</span>
                     </div>
                     <Progress value={(timeLeft / QR_TIMEOUT_SECONDS) * 100} className="h-1.5" />
-                    <p className="text-xs text-muted-foreground pt-2">
-                      Abra o WhatsApp no seu celular {'>'} Dispositivos Conectados {'>'} Conectar um Aparelho
-                    </p>
                   </div>
                 )}
-
-                <div className="w-full pt-4 border-t space-y-3">
-                  <p className="text-[10px] font-bold text-center text-muted-foreground uppercase tracking-widest">Opções Alternativas</p>
-                  <Button variant="outline" className="w-full h-10 text-xs" onClick={copyToClipboard}>
-                    <Copy className="w-3.5 h-3.5 mr-2" />
-                    Copiar Código de Emparelhamento
-                  </Button>
-                  <Button variant="ghost" className="w-full text-xs text-muted-foreground" onClick={() => fetchQRCode(token)}>
-                    Não está funcionando? Tente gerar novamente
-                  </Button>
-                </div>
               </div>
             )}
           </div>

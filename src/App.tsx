@@ -6,7 +6,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LocationProvider } from "@/contexts/LocationContext";
 import Dashboard from "@/pages/Dashboard";
 import InstancesPage from "@/pages/InstancesPage";
-import GHLIntegrationPage from "@/pages/GHLIntegrationPage";
 import LogsPage from "@/pages/LogsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import ManagerPage from "@/pages/ManagerPage";
@@ -33,7 +32,6 @@ const App = () => (
           >
             <Route index element={<InstancesPage />} />
             <Route path="instances" element={<InstancesPage />} />
-            <Route path="ghl" element={<GHLIntegrationPage />} />
             <Route path="logs" element={<LogsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
