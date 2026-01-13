@@ -7,12 +7,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useSubaccountConfig } from '@/hooks/use-subaccount-config';
+import { uazapiFetch } from '@/lib/uazapi';
 import type { Instance } from '@/types/instance';
 import { Loader2, RefreshCw, CheckCircle2, ShieldCheck } from 'lucide-react';
 
@@ -23,90 +23,67 @@ interface ConnectDialogProps {
   onSuccess: () => void;
 }
 
-const WEBHOOK_BASE_URL = 'https://dev.bslabs.space/webhook';
 const QR_TIMEOUT_SECONDS = 60;
-
 type ConnectionState = 'idle' | 'loading_qr' | 'waiting_for_scan' | 'connected' | 'expired';
 
 export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: ConnectDialogProps) {
-  const [name, setName] = useState(instance.instance_name || '');
-  const [token, setToken] = useState(instance.instance_token || '');
   const [localQr, setLocalQr] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
   const [timeLeft, setTimeLeft] = useState(QR_TIMEOUT_SECONDS);
   const { toast } = useToast();
+  const { data: config } = useSubaccountConfig(instance.location_id);
 
-  const fetchQRCode = useCallback(async (targetToken: string) => {
-    if (!targetToken) return;
+  const fetchQRCode = useCallback(async () => {
+    if (!config?.api_base_url || !instance.instance_token) return;
     
     setConnectionState('loading_qr');
     setLocalQr(null);
     try {
-      const response = await fetch(`${WEBHOOK_BASE_URL}/atualiza`, {
+      const data = await uazapiFetch(config.api_base_url, '/instance/connect', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instanceName: targetToken }),
+        instanceToken: instance.instance_token
       });
 
-      if (!response.ok) throw new Error('Falha ao solicitar QR Code.');
-
-      const contentType = response.headers.get('content-type');
-      if (contentType?.includes('application/json')) {
-        const data = await response.json();
-        setLocalQr(data.qrCodeBase64 || data.qrcode || data.qr);
-      } else {
-        const blob = await response.blob();
-        setLocalQr(URL.createObjectURL(blob));
+      const qr = data.qrcode || data.qrCodeBase64 || data.qr;
+      if (qr) {
+        setLocalQr(qr);
+        setConnectionState('waiting_for_scan');
+        setTimeLeft(QR_TIMEOUT_SECONDS);
+      } else if (data.status === 'connected') {
+        setConnectionState('connected');
       }
-      
-      setConnectionState('waiting_for_scan');
-      setTimeLeft(QR_TIMEOUT_SECONDS);
     } catch (error: any) {
-      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+      toast({ title: 'Erro ao gerar QR', description: error.message, variant: 'destructive' });
       setConnectionState('idle');
     }
-  }, [toast]);
+  }, [config, instance.instance_token, toast]);
 
-  // Função para verificar status no servidor (Polling), igual ao n8n
   const checkStatus = useCallback(async () => {
-    if (!token || connectionState === 'connected' || !open) return;
+    if (!config?.api_base_url || !instance.instance_token || connectionState === 'connected' || !open) return;
 
     try {
-      const response = await fetch(`${WEBHOOK_BASE_URL}/status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instanceName: token }),
+      const data = await uazapiFetch(config.api_base_url, '/instance/status', {
+        instanceToken: instance.instance_token
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        // Lógica de verificação do n8n
-        const statusData = Array.isArray(data) ? data[0] : data;
-        const isConnected = 
-          statusData?.instance?.status === 'connected' && 
-          statusData?.status?.connected === true;
+      if (data.instance?.status === 'connected') {
+        await supabase
+          .from('instances')
+          .update({ status: 'connected', qr_code: null })
+          .eq('id', instance.id);
 
-        if (isConnected) {
-          // Atualiza o Supabase para que o resto do app saiba que está online
-          await supabase
-            .from('instances')
-            .update({ status: 'connected', qr_code: null })
-            .eq('id', instance.id);
-
-          setConnectionState('connected');
-          toast({ title: 'WhatsApp Conectado!' });
-          setTimeout(() => {
-            onOpenChange(false);
-            onSuccess();
-          }, 2000);
-        }
+        setConnectionState('connected');
+        toast({ title: 'WhatsApp Conectado!' });
+        setTimeout(() => {
+          onOpenChange(false);
+          onSuccess();
+        }, 2000);
       }
     } catch (e) {
       console.error('Erro ao verificar status:', e);
     }
-  }, [token, connectionState, open, instance.id, onOpenChange, onSuccess, toast]);
+  }, [config, instance, connectionState, open, onSuccess, toast, onOpenChange]);
 
-  // Efeito de Polling (5 segundos, igual ao n8n)
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (connectionState === 'waiting_for_scan' && open) {
@@ -115,7 +92,6 @@ export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: Conne
     return () => clearInterval(interval);
   }, [connectionState, open, checkStatus]);
 
-  // Countdown
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (connectionState === 'waiting_for_scan' && timeLeft > 0) {
@@ -127,25 +103,10 @@ export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: Conne
   }, [connectionState, timeLeft]);
 
   useEffect(() => {
-    if (open && token && connectionState === 'idle') {
-      fetchQRCode(token);
+    if (open && connectionState === 'idle') {
+      fetchQRCode();
     }
-  }, [open, token, connectionState, fetchQRCode]);
-
-  const handleSaveConfig = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token.trim()) return;
-
-    try {
-      await supabase
-        .from('instances')
-        .update({ instance_name: name, instance_token: token })
-        .eq('id', instance.id);
-      fetchQRCode(token);
-    } catch (error: any) {
-      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
-    }
-  };
+  }, [open, connectionState, fetchQRCode]);
 
   const formatQrCode = (qr: string) => {
     if (!qr) return null;
@@ -158,7 +119,7 @@ export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: Conne
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Conectar WhatsApp</DialogTitle>
-          <DialogDescription>Escaneie o código para vincular.</DialogDescription>
+          <DialogDescription>Escaneie o código para vincular esta instância.</DialogDescription>
         </DialogHeader>
 
         {connectionState === 'connected' ? (
@@ -170,54 +131,40 @@ export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: Conne
           </div>
         ) : (
           <div className="space-y-6">
-            {!instance.instance_token && connectionState === 'idle' ? (
-              <form onSubmit={handleSaveConfig} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Nome</Label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Token UaZapi</Label>
-                  <Input value={token} onChange={(e) => setToken(e.target.value)} />
-                </div>
-                <Button type="submit" className="w-full">Gerar QR Code</Button>
-              </form>
-            ) : (
-              <div className="flex flex-col items-center space-y-6">
-                <div className="relative p-4 bg-white rounded-xl border-2 border-primary/20 shadow-md">
-                  {connectionState === 'loading_qr' ? (
-                    <div className="w-48 h-48 flex flex-col items-center justify-center bg-muted">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    </div>
-                  ) : localQr ? (
-                    <img src={formatQrCode(localQr)!} alt="QR Code" className={`w-48 h-48 object-contain ${connectionState === 'expired' ? 'blur-sm opacity-50' : ''}`} />
-                  ) : (
-                    <Skeleton className="w-48 h-48" />
-                  )}
-
-                  {connectionState === 'expired' && (
-                    <div className="absolute inset-0 flex items-center justify-center z-20">
-                      <Button variant="secondary" onClick={() => fetchQRCode(token)}>
-                        <RefreshCw className="w-4 h-4 mr-2" /> Recarregar
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                {connectionState === 'waiting_for_scan' && (
-                  <div className="w-full space-y-3 text-center">
-                    <Progress value={(timeLeft / QR_TIMEOUT_SECONDS) * 100} className="h-1.5" />
-                    <p className="text-xs text-muted-foreground">Verificando conexão a cada 5s...</p>
+            <div className="flex flex-col items-center space-y-6">
+              <div className="relative p-4 bg-white rounded-xl border-2 border-primary/20 shadow-md">
+                {connectionState === 'loading_qr' ? (
+                  <div className="w-48 h-48 flex flex-col items-center justify-center bg-muted">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   </div>
+                ) : localQr ? (
+                  <img src={formatQrCode(localQr)!} alt="QR Code" className={`w-48 h-48 object-contain ${connectionState === 'expired' ? 'blur-sm opacity-50' : ''}`} />
+                ) : (
+                  <Skeleton className="w-48 h-48" />
                 )}
 
-                <div className="w-full pt-4 border-t flex flex-col gap-2">
-                  <Button variant="outline" className="w-full" onClick={checkStatus}>
-                    <ShieldCheck className="w-3.5 h-3.5 mr-2 text-primary" /> Verificar Status Agora
-                  </Button>
-                </div>
+                {connectionState === 'expired' && (
+                  <div className="absolute inset-0 flex items-center justify-center z-20">
+                    <Button variant="secondary" onClick={fetchQRCode}>
+                      <RefreshCw className="w-4 h-4 mr-2" /> Recarregar
+                    </Button>
+                  </div>
+                )}
               </div>
-            )}
+
+              {connectionState === 'waiting_for_scan' && (
+                <div className="w-full space-y-3 text-center">
+                  <Progress value={(timeLeft / QR_TIMEOUT_SECONDS) * 100} className="h-1.5" />
+                  <p className="text-xs text-muted-foreground font-medium">Aguardando leitura do QR Code...</p>
+                </div>
+              )}
+
+              <div className="w-full pt-4 border-t">
+                <Button variant="outline" className="w-full" onClick={checkStatus}>
+                  <ShieldCheck className="w-3.5 h-3.5 mr-2 text-primary" /> Verificar Conexão Agora
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </DialogContent>

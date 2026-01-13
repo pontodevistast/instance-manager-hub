@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save } from 'lucide-react';
+import { uazapiFetch } from '@/lib/uazapi';
+import { Loader2, Save, Globe, Shield, Activity } from 'lucide-react';
 
 export default function GHLIntegrationPage() {
   const { locationId } = useLocation();
@@ -18,16 +20,18 @@ export default function GHLIntegrationPage() {
   const [config, setConfig] = useState({
     ghl_token: '',
     account_name: '',
-    api_base_url: 'https://api.uazapi.com',
+    api_base_url: 'https://kanbro.uazapi.com',
     api_token: '',
     ignore_groups: true,
   });
+
+  const [webhookUrl, setWebhookUrl] = useState('');
 
   useEffect(() => {
     async function fetchConfig() {
       if (!locationId) return;
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('ghl_uazapi_config')
           .select('*')
           .eq('location_id', locationId)
@@ -37,10 +41,22 @@ export default function GHLIntegrationPage() {
           setConfig({
             ghl_token: data.ghl_token || '',
             account_name: data.account_name || '',
-            api_base_url: data.api_base_url || 'https://api.uazapi.com',
+            api_base_url: data.api_base_url || 'https://kanbro.uazapi.com',
             api_token: data.api_token || '',
             ignore_groups: data.ignore_groups ?? true,
           });
+
+          // Buscar Webhook Global se tiver API configurada
+          if (data.api_base_url && data.api_token) {
+            try {
+              const hookData = await uazapiFetch(data.api_base_url, '/globalwebhook', {
+                adminToken: data.api_token
+              });
+              setWebhookUrl(hookData.url || '');
+            } catch (e) {
+              console.warn('Falha ao buscar webhook global:', e);
+            }
+          }
         }
       } catch (err) {
         console.error('Erro ao buscar config:', err);
@@ -51,10 +67,11 @@ export default function GHLIntegrationPage() {
     fetchConfig();
   }, [locationId]);
 
-  const handleSave = async () => {
+  const handleSaveAll = async () => {
     if (!locationId) return;
     setIsSaving(true);
     try {
+      // 1. Salvar no Supabase
       const { error } = await supabase
         .from('ghl_uazapi_config')
         .upsert({
@@ -65,124 +82,135 @@ export default function GHLIntegrationPage() {
           api_token: config.api_token,
           ignore_groups: config.ignore_groups,
           updated_at: new Date().toISOString(),
-        }, { 
-          onConflict: 'location_id' 
-        });
+        }, { onConflict: 'location_id' });
 
       if (error) throw error;
 
-      toast({
-        title: 'Configuração salva',
-        description: 'As definições de integração foram atualizadas com sucesso.',
-      });
+      // 2. Salvar Webhook Global via API UaZapi
+      if (config.api_base_url && config.api_token && webhookUrl) {
+        await uazapiFetch(config.api_base_url, '/globalwebhook', {
+          method: 'POST',
+          adminToken: config.api_token,
+          body: {
+            url: webhookUrl,
+            events: ["messages", "connection"],
+            excludeMessages: ["wasSentByApi"]
+          }
+        });
+      }
+
+      toast({ title: 'Configurações Salvas', description: 'Dados locais e servidor sincronizados.' });
     } catch (err: any) {
-      toast({
-        title: 'Erro ao salvar',
-        description: err.message || 'Erro desconhecido ao salvar.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Erro ao Salvar', description: err.message, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  if (isLoading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Integração</h1>
-        <p className="text-muted-foreground">Configure os dados globais da sua subconta e API</p>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">GoHighLevel (GHL)</CardTitle>
-            <CardDescription>Credenciais da subconta</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Location ID</Label>
-              <Input value={locationId || ''} disabled className="bg-muted" />
-            </div>
-            <div className="space-y-2">
-              <Label>Bearer Token</Label>
-              <Input 
-                type="password"
-                placeholder="Token de acesso GHL" 
-                value={config.ghl_token}
-                onChange={(e) => setConfig({...config, ghl_token: e.target.value})}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Nome de Exibição</Label>
-              <Input 
-                placeholder="Ex: Unidade Centro" 
-                value={config.account_name}
-                onChange={(e) => setConfig({...config, account_name: e.target.value})}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Servidor UaZapi</CardTitle>
-            <CardDescription>Configurações globais da API</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>API Base URL</Label>
-              <Input 
-                placeholder="https://api.uazapi.com" 
-                value={config.api_base_url}
-                onChange={(e) => setConfig({...config, api_base_url: e.target.value})}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Global API Token</Label>
-              <Input 
-                type="password"
-                placeholder="Token mestre do servidor" 
-                value={config.api_token}
-                onChange={(e) => setConfig({...config, api_token: e.target.value})}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Comportamento</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Ignorar Grupos</Label>
-              <p className="text-sm text-muted-foreground">Evita processar mensagens vindas de grupos.</p>
-            </div>
-            <Switch 
-              checked={config.ignore_groups}
-              onCheckedChange={(checked) => setConfig({...config, ignore_groups: checked})}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex justify-end gap-3">
-        <Button onClick={handleSave} disabled={isSaving}>
+    <div className="space-y-6 max-w-5xl mx-auto">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Integração & Servidor</h1>
+          <p className="text-muted-foreground">Configure os dados do GHL e as definições globais do UaZapi.</p>
+        </div>
+        <Button onClick={handleSaveAll} disabled={isSaving}>
           {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          Salvar Configurações
+          Salvar Tudo
         </Button>
       </div>
+
+      <Tabs defaultValue="creds" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 max-w-md">
+          <TabsTrigger value="creds">Credenciais</TabsTrigger>
+          <TabsTrigger value="webhook">Webhook Global</TabsTrigger>
+          <TabsTrigger value="privacy">Privacidade</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="creds" className="space-y-6 mt-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader><CardTitle className="text-lg">Subconta GoHighLevel</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Location ID</Label>
+                  <Input value={locationId || ''} disabled className="bg-muted font-mono text-xs" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Bearer Token</Label>
+                  <Input type="password" value={config.ghl_token} onChange={(e) => setConfig({...config, ghl_token: e.target.value})} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle className="text-lg">API UaZapi (Servidor)</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>API Base URL</Label>
+                  <Input value={config.api_base_url} onChange={(e) => setConfig({...config, api_base_url: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Global Admin Token</Label>
+                  <Input type="password" value={config.api_token} onChange={(e) => setConfig({...config, api_token: e.target.value})} />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="webhook" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5 text-primary" /> Webhook Global
+              </CardTitle>
+              <CardDescription>URL que receberá todos os eventos de mensagens e conexão do servidor.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Endpoint URL</Label>
+                <Input 
+                  placeholder="https://sua-url.com/webhook" 
+                  value={webhookUrl}
+                  onChange={(e) => setWebhookUrl(e.target.value)}
+                />
+              </div>
+              <div className="bg-muted/50 p-4 rounded-lg border text-xs space-y-2">
+                <p className="font-bold flex items-center gap-2"><Activity className="h-3 w-3" /> Eventos Monitorados:</p>
+                <ul className="list-disc list-inside text-muted-foreground ml-2">
+                  <li>messages (Mensagens recebidas/enviadas)</li>
+                  <li>connection (Status da bateria/rede)</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="privacy" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" /> Segurança & Comportamento
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Ignorar Mensagens de Grupos</Label>
+                  <p className="text-sm text-muted-foreground">Não processa mensagens vindas de chats coletivos.</p>
+                </div>
+                <Switch 
+                  checked={config.ignore_groups}
+                  onCheckedChange={(checked) => setConfig({...config, ignore_groups: checked})}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
