@@ -26,23 +26,23 @@ interface AddInstanceDialogProps {
 export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }: AddInstanceDialogProps) {
   const [name, setName] = useState('');
   const [systemName, setSystemName] = useState('');
-  const [token, setToken] = useState('');
+  const [tokenImport, setTokenImport] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<'new' | 'import'>('new');
   const { toast } = useToast();
   
   const { data: config } = useSubaccountConfig(locationId);
 
-  // Gera o System Name automaticamente a partir do nome amigável
+  // Gera o System Name automaticamente
   useEffect(() => {
     if (mode === 'new' && name) {
       const slug = name
         .toLowerCase()
         .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remove acentos
-        .replace(/[^a-z0-9]/g, '') // Remove caracteres especiais
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '')
         .substring(0, 15);
-      setSystemName(slug + '_' + Math.random().toString(36).substring(2, 5));
+      setSystemName(slug);
     }
   }, [name, mode]);
 
@@ -50,62 +50,69 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
     e.preventDefault();
     if (!name.trim()) return;
     
-    const finalSystemName = mode === 'new' ? systemName : token.trim();
-    if (!finalSystemName) return;
-
-    if (mode === 'new' && (!config?.api_token || !config?.api_base_url)) {
-      toast({ 
-        title: 'Configuração incompleta', 
-        description: 'Configure o Global API Token na aba Integração primeiro.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
     setIsLoading(true);
     try {
+      let finalInstanceToken = '';
+
       // 1. Criar no servidor UaZapi
       if (mode === 'new') {
-        const createRes = await fetch(`${config.api_base_url}/instance/create`, {
+        if (!config?.api_token || !config?.api_base_url) {
+          throw new Error('Configuração de API (Base URL ou Token) não encontrada para esta subconta.');
+        }
+
+        const response = await fetch(`${config.api_base_url}/instance/create`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${config.api_token}`
           },
           body: JSON.stringify({
-            instanceName: finalSystemName,
-            token: finalSystemName // Usamos o mesmo ID como token da instância por padrão
+            name: name.trim(),
+            systemName: systemName || 'uazapiGO',
+            adminField01: locationId // Usamos para identificar a qual subconta pertence no servidor
           })
         });
 
-        if (!createRes.ok) {
-          const errData = await createRes.json();
-          throw new Error(errData.message || 'Erro na API UaZapi. Verifique se o Token Global está correto.');
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.message || 'Erro ao criar instância no servidor.');
         }
+
+        const data = await response.json();
+        // Conforme o exemplo: o token pode estar em data.token ou data.instance.token
+        finalInstanceToken = data.token || data.instance?.token;
+
+        if (!finalInstanceToken) {
+          throw new Error('O servidor não retornou um token de autenticação válido.');
+        }
+      } else {
+        // Modo Importar
+        finalInstanceToken = tokenImport.trim();
+        if (!finalInstanceToken) throw new Error('O token da instância é obrigatório para importar.');
       }
 
       // 2. Salvar no Supabase
       const { error: dbError } = await supabase.from('instances').insert({
         location_id: locationId,
         instance_name: name.trim(),
-        instance_token: finalSystemName,
+        instance_token: finalInstanceToken,
         status: 'disconnected',
       });
 
       if (dbError) throw dbError;
 
       toast({ 
-        title: mode === 'new' ? 'Sucesso!' : 'Importado!', 
-        description: 'Instância pronta para conexão.' 
+        title: mode === 'new' ? 'Instância Criada' : 'Instância Vinculada', 
+        description: 'Dados salvos com sucesso.' 
       });
       
       setName('');
       setSystemName('');
-      setToken('');
+      setTokenImport('');
       onOpenChange(false);
       onSuccess();
     } catch (error: any) {
-      toast({ title: 'Falha na criação', description: error.message, variant: 'destructive' });
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
@@ -116,11 +123,11 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleCreate}>
           <DialogHeader>
-            <DialogTitle>Nova Conexão WhatsApp</DialogTitle>
+            <DialogTitle>Adicionar WhatsApp</DialogTitle>
             <DialogDescription>
               {mode === 'new' 
-                ? 'Crie uma nova instância automaticamente no seu servidor.' 
-                : 'Vincule uma instância que já existe e está ativa.'}
+                ? 'Registre uma nova conexão no servidor.' 
+                : 'Vincule uma instância que já possui um token.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -132,12 +139,12 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
             
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Nome da Instância (Exibição)</Label>
+                <Label htmlFor="name">Nome da Instância</Label>
                 <Input
                   id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Ex: Suporte Vendas"
+                  placeholder="Ex: Vendas"
                   required
                 />
               </div>
@@ -145,31 +152,26 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
               <TabsContent value="new" className="m-0 space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="sysName" className="flex items-center gap-2">
-                    System Name (ID Técnico)
+                    System Name
                     <Info className="h-3 w-3 text-muted-foreground" />
                   </Label>
                   <Input
                     id="sysName"
                     value={systemName}
                     onChange={(e) => setSystemName(e.target.value)}
-                    placeholder="id_tecnico"
-                    className="bg-muted/50 font-mono text-xs"
+                    placeholder="uazapiGO"
+                    className="font-mono text-xs"
                   />
-                </div>
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
-                  <p className="text-[11px] text-blue-700 dark:text-blue-300 leading-relaxed">
-                    Este ID será usado nas requisições de QR Code e Status. Ele é gerado automaticamente para você.
-                  </p>
                 </div>
               </TabsContent>
 
               <TabsContent value="import" className="m-0 space-y-2">
-                <Label htmlFor="token">Token / System Name Existente</Label>
+                <Label htmlFor="tokenImp">Token da Instância (abc123xyz...)</Label>
                 <Input
-                  id="token"
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
-                  placeholder="Insira o ID exato do servidor"
+                  id="tokenImp"
+                  value={tokenImport}
+                  onChange={(e) => setTokenImport(e.target.value)}
+                  placeholder="Insira o token retornado na criação"
                   required={mode === 'import'}
                 />
               </TabsContent>
@@ -182,7 +184,7 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
             </Button>
             <Button type="submit" disabled={isLoading || !name.trim()}>
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : mode === 'new' ? <Plus className="h-4 w-4 mr-2" /> : <Link2 className="h-4 w-4 mr-2" />}
-              {mode === 'new' ? 'Criar no Servidor' : 'Vincular'}
+              {mode === 'new' ? 'Criar Instância' : 'Vincular'}
             </Button>
           </DialogFooter>
         </form>
