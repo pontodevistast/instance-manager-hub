@@ -5,18 +5,21 @@ interface StatusBadgeProps {
   status: InstanceStatus;
 }
 
-const statusConfig: Record<InstanceStatus, { label: string; className: string }> = {
+const statusConfig: Record<InstanceStatus, { label: string; className: string; dotClassName: string }> = {
   connected: {
-    label: 'Connected',
-    className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    label: 'ONLINE',
+    className: 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800',
+    dotClassName: 'bg-green-500',
   },
   disconnected: {
-    label: 'Disconnected',
-    className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    label: 'OFFLINE',
+    className: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700',
+    dotClassName: 'bg-slate-400',
   },
   error: {
-    label: 'Error',
-    className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    label: 'ERRO',
+    className: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800',
+    dotClassName: 'bg-red-500',
   },
 };
 
@@ -26,18 +29,16 @@ export function StatusBadge({ status }: StatusBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium',
+        'inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold border tracking-wider',
         config.className
       )}
     >
-      <span
-        className={cn(
-          'w-1.5 h-1.5 rounded-full',
-          status === 'connected' && 'bg-green-500',
-          status === 'disconnected' && 'bg-red-500',
-          status === 'error' && 'bg-amber-500'
+      <span className="relative flex h-2 w-2">
+        {status === 'connected' && (
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
         )}
-      />
+        <span className={cn('relative inline-flex rounded-full h-2 w-2', config.dotClassName)}></span>
+      </span>
       {config.label}
     </span>
   );
