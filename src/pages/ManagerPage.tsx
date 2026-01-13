@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSubaccounts } from '@/hooks/use-subaccounts';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, LayoutGrid, ChevronRight, Search, Loader2 } from 'lucide-react';
+import { ManageSubaccountDialog } from '@/components/ManageSubaccountDialog';
+import { Plus, LayoutGrid, ChevronRight, Search, Loader2, Settings2 } from 'lucide-react';
 
 export default function ManagerPage() {
   const [newLocationId, setNewLocationId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const { data: subaccounts, isLoading } = useSubaccounts();
+  const [selectedSubaccount, setSelectedSubaccount] = useState<string | null>(null);
+  const { data: subaccounts, isLoading, refetch } = useSubaccounts();
   const navigate = useNavigate();
 
   const handleAdd = (e: React.FormEvent) => {
@@ -73,19 +75,38 @@ export default function ManagerPage() {
                   {filteredAccounts.map((id) => (
                     <div 
                       key={id} 
-                      className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors cursor-pointer group"
-                      onClick={() => navigate(`/${id}/instances`)}
+                      className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors group"
                     >
-                      <div className="flex items-center gap-4">
+                      <div 
+                        className="flex items-center gap-4 cursor-pointer flex-1"
+                        onClick={() => navigate(`/${id}/instances`)}
+                      >
                         <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center font-bold text-primary">
                           {id.substring(0, 2).toUpperCase()}
                         </div>
                         <div>
                           <p className="font-medium">{id}</p>
-                          <p className="text-xs text-muted-foreground">Subconta ativa</p>
+                          <p className="text-xs text-muted-foreground">Clique para acessar o painel</p>
                         </div>
                       </div>
-                      <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                      
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedSubaccount(id);
+                          }}
+                        >
+                          <Settings2 className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                        <ChevronRight 
+                          className="h-5 w-5 text-muted-foreground cursor-pointer" 
+                          onClick={() => navigate(`/${id}/instances`)}
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -98,6 +119,18 @@ export default function ManagerPage() {
           </Card>
         </div>
       </div>
+
+      {selectedSubaccount && (
+        <ManageSubaccountDialog
+          open={!!selectedSubaccount}
+          onOpenChange={(open) => !open && setSelectedSubaccount(null)}
+          locationId={selectedSubaccount}
+          onSuccess={() => {
+            setSelectedSubaccount(null);
+            refetch();
+          }}
+        />
+      )}
     </div>
   );
 }
