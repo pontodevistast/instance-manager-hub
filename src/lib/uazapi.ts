@@ -1,6 +1,6 @@
 /**
  * Utilitário para chamadas à API UaZapi
- * Baseado na documentação técnica fornecida (curl)
+ * Suporta JSON e respostas em texto puro (Base64)
  */
 
 interface RequestOptions {
@@ -14,16 +14,17 @@ export async function uazapiFetch(baseUrl: string, endpoint: string, options: Re
   const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
   
   const headers: Record<string, string> = {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
+    'Accept': 'application/json, text/plain, */*',
   };
 
-  // Se tiver adminToken, usa o cabeçalho admintoken (padrão administrativo)
+  if (options.body) {
+    headers['Content-Type'] = 'application/json';
+  }
+
   if (options.adminToken) {
     headers['admintoken'] = options.adminToken;
   }
 
-  // Se tiver instanceToken, usa o cabeçalho token (padrão de instância específica)
   if (options.instanceToken) {
     headers['token'] = options.instanceToken;
   }
@@ -34,10 +35,30 @@ export async function uazapiFetch(baseUrl: string, endpoint: string, options: Re
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
 
+  const contentType = response.headers.get('content-type');
+
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Erro na API: ${response.statusText}`);
+    let errorMsg = `Erro na API: ${response.statusText}`;
+    try {
+      const errorData = await response.json();
+      errorMsg = errorData.message || errorData.error || errorMsg;
+    } catch (e) {
+      // Se não for JSON, tenta ler texto
+      const text = await response.text().catch(() => '');
+      if (text) errorMsg = text;
+    }
+    throw new Error(errorMsg);
   }
 
-  return response.json();
+  // Tenta retornar JSON, se falhar retorna texto puro
+  if (contentType && contentType.includes('application/json')) {
+    return response.json();
+  } else {
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      return text;
+    }
+  }
 }

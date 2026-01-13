@@ -51,22 +51,40 @@ export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: Conne
         instanceToken: instance.instance_token
       });
 
-      // A API pode retornar o QR em vários campos dependendo da versão
-      const qr = data.qrcode || data.qrCodeBase64 || data.qr || data.code || (typeof data === 'string' ? data : null);
+      console.log("[ConnectDialog] Resposta da API:", data);
+
+      // Função para encontrar QR code em qualquer lugar do objeto
+      const findQr = (obj: any): string | null => {
+        if (!obj) return null;
+        if (typeof obj === 'string' && (obj.length > 100 || obj.includes('base64'))) return obj;
+        
+        const possibleKeys = ['qrcode', 'qrCodeBase64', 'qr', 'code', 'base64', 'content'];
+        for (const key of possibleKeys) {
+          if (obj[key] && typeof obj[key] === 'string') return obj[key];
+        }
+        
+        // Busca em objetos aninhados (como data.instance.qrcode)
+        if (obj.instance && typeof obj.instance === 'object') return findQr(obj.instance);
+        if (obj.data && typeof obj.data === 'object') return findQr(obj.data);
+        
+        return null;
+      };
+
+      const qr = findQr(data);
       
-      if (qr && typeof qr === 'string') {
+      if (qr) {
         setLocalQr(qr);
         setConnectionState('waiting_for_scan');
         setTimeLeft(QR_TIMEOUT_SECONDS);
       } else if (data.status === 'connected' || data.instance?.status === 'connected') {
         setConnectionState('connected');
       } else {
-        throw new Error("Não foi possível obter o QR Code da API.");
+        throw new Error("A API não retornou um código QR válido na resposta.");
       }
     } catch (error: any) {
-      console.error('Erro no fetchQRCode:', error);
+      console.error('[ConnectDialog] Erro ao buscar QR:', error);
       setConnectionState('error');
-      setErrorMessage(error.message || "Erro desconhecido ao gerar QR Code");
+      setErrorMessage(error.message || "Erro ao conectar com o servidor de WhatsApp");
     }
   }, [config, instance.instance_token]);
 
@@ -92,7 +110,7 @@ export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: Conne
         }, 2000);
       }
     } catch (e) {
-      console.error('Erro ao verificar status:', e);
+      console.error('[ConnectDialog] Erro ao verificar status:', e);
     }
   }, [config, instance, connectionState, open, onSuccess, toast, onOpenChange]);
 
@@ -118,13 +136,15 @@ export function ConnectDialog({ open, onOpenChange, instance, onSuccess }: Conne
     if (open && (connectionState === 'idle' || connectionState === 'error')) {
       fetchQRCode();
     }
-  }, [open]);
+  }, [open, fetchQRCode]);
 
   const formatQrCode = (qr: string) => {
     if (!qr) return null;
-    if (qr.startsWith('data:') || qr.startsWith('blob:')) return qr;
-    // Se a string não tiver o prefixo, adicionamos como PNG
-    return `data:image/png;base64,${qr}`;
+    if (qr.startsWith('data:image')) return qr;
+    
+    // Limpa a string de possíveis prefixos redundantes
+    const cleanBase64 = qr.replace(/^data:image\/\w+;base64,/, '');
+    return `data:image/png;base64,${cleanBase64}`;
   };
 
   return (
