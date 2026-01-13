@@ -1,4 +1,4 @@
-import { Smartphone, FileText, Settings, LayoutGrid, MessageSquare, Zap, ChevronDown } from 'lucide-react';
+import { Smartphone, FileText, Settings, LayoutGrid, MessageSquare, Zap, ChevronDown, LayoutDashboard } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from '@/contexts/LocationContext';
 import { useSubaccounts } from '@/hooks/use-subaccounts';
@@ -29,6 +29,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
 
   const menuItems = [
+    { title: 'Painel', url: `/${locationId}/dashboard`, icon: LayoutDashboard },
     { title: 'Instâncias', url: `/${locationId}/instances`, icon: Smartphone },
     { title: 'Integração', url: `/${locationId}/ghl`, icon: Zap },
     { title: 'Logs', url: `/${locationId}/logs`, icon: FileText },
