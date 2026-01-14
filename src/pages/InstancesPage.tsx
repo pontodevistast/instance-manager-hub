@@ -9,52 +9,21 @@ import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 import { useSubaccountConfig } from '@/hooks/use-subaccount-config';
-import { createGHLMenuLink } from '@/lib/ghl';
 
 export default function InstancesPage() {
   const { locationId } = useLocation();
   const { instances, isLoading, refetch } = useInstances(locationId);
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isGhlLoading, setIsGhlLoading] = useState(false);
   const { toast } = useToast();
   const { data: config } = useSubaccountConfig(locationId);
 
-  const handleCreateGHLMenu = async () => {
-    if (!locationId || !config?.ghl_token) {
-      toast({
-        title: "Token GHL ausente",
-        description: "Certifique-se de configurar o token do GHL na página de integração primeiro.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsGhlLoading(true);
-    try {
-      const dashboardUrl = `${window.location.origin}/${locationId}/dashboard?iframe=true`;
-
-      await createGHLMenuLink(config.ghl_token, {
-        title: "Instâncias WhatsApp",
-        url: dashboardUrl,
-        icon: "smartphone",
-        openMode: "iframe"
-      });
-
-      toast({
-        title: "Sucesso!",
-        description: "Menu lateral criado no GHL! Recarregue o painel do GHL para ver a nova opção.",
-      });
-
-    } catch (error: any) {
-      console.error("Erro ao criar menu GHL:", error);
-      toast({
-        title: "Erro na integração",
-        description: error.message || "Não foi possível criar o menu no GHL automaticamente.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsGhlLoading(false);
-    }
+  const handleCopyLink = () => {
+    const dashboardUrl = `${window.location.origin}/${locationId}/dashboard?iframe=true`;
+    navigator.clipboard.writeText(dashboardUrl);
+    toast({
+      title: "Link Copiado!",
+      description: "O link para o IFRAME foi copiado para sua área de transferência.",
+    });
   };
 
   return (
@@ -69,12 +38,11 @@ export default function InstancesPage() {
         <div className="flex gap-3">
           <Button
             variant="outline"
-            onClick={handleCreateGHLMenu}
-            disabled={isGhlLoading}
+            onClick={handleCopyLink}
             className="rounded-xl border-indigo-200 text-indigo-700 hover:bg-indigo-50"
           >
-            {isGhlLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 mr-2" />}
-            Conectar no GHL
+            <Zap className="h-4 w-4 mr-2" />
+            Copiar Link p/ GHL
           </Button>
           <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isLoading} className="rounded-xl">
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />

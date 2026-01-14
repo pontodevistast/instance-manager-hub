@@ -23,7 +23,6 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [liveStatus, setLiveStatus] = useState<InstanceStatus>(instance.status);
   const [qrCode, setQrCode] = useState<string | null>(null);
-
   const { toast } = useToast();
   const { data: config } = useSubaccountConfig(instance.location_id);
   const { handleLogout, fetchQrCode, isDisconnecting, isFetchingQr } = useInstanceActions(instance.location_id);

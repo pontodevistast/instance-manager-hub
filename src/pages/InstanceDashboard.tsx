@@ -12,13 +12,11 @@ import { useInstanceActions } from '@/hooks/use-instance-actions';
 import { useSubaccountConfig } from '@/hooks/use-subaccount-config';
 import type { Instance } from '@/types/instance';
 
-import { createGHLMenuLink } from '@/lib/ghl';
+
 
 export default function InstanceDashboard() {
   const { locationId } = useLocation();
   const { instances, isLoading, refetch } = useInstances(locationId);
-  const [selectedInstance, setSelectedInstance] = useState<Instance | null>(null);
-  const [isGhlLoading, setIsGhlLoading] = useState(false);
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const isIframe = searchParams.get('iframe') === 'true';
@@ -26,42 +24,13 @@ export default function InstanceDashboard() {
   const { handleLogout, fetchQrCode, isDisconnecting, isFetchingQr } = useInstanceActions(locationId);
   const [qrCodes, setQrCodes] = useState<Record<string, string>>({});
 
-  const handleCreateGHLMenu = async () => {
-    if (!locationId || !config?.ghl_token) {
-      toast({
-        title: "Token GHL ausente",
-        description: "Certifique-se de configurar o token do GHL na página de integração primeiro.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsGhlLoading(true);
-    try {
-      const dashboardUrl = `${window.location.origin}/${locationId}/dashboard?iframe=true`;
-
-      await createGHLMenuLink(config.ghl_token, {
-        title: "Instâncias WhatsApp",
-        url: dashboardUrl,
-        icon: "smartphone",
-        openMode: "iframe"
-      });
-
-      toast({
-        title: "Sucesso!",
-        description: "Menu lateral criado no GHL! Recarregue o painel do GHL para ver a nova opção.",
-      });
-
-    } catch (error: any) {
-      console.error("Erro ao criar menu GHL:", error);
-      toast({
-        title: "Erro na integração",
-        description: error.message || "Não foi possível criar o menu no GHL automaticamente.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsGhlLoading(false);
-    }
+  const handleCopyLink = () => {
+    const dashboardUrl = `${window.location.origin}/${locationId}/dashboard?iframe=true`;
+    navigator.clipboard.writeText(dashboardUrl);
+    toast({
+      title: "Link Copiado!",
+      description: "O link para o IFRAME foi copiado para sua área de transferência.",
+    });
   };
 
   const loadQrCode = useCallback(async (instance: Instance) => {
@@ -99,12 +68,11 @@ export default function InstanceDashboard() {
         </div>
         {!isIframe && (
           <Button
-            onClick={handleCreateGHLMenu}
-            disabled={isGhlLoading}
+            onClick={handleCopyLink}
             className="rounded-xl shadow-lg hover:shadow-primary/20 bg-indigo-600 hover:bg-indigo-700 h-11"
           >
-            {isGhlLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
-            Conectar no GHL (Menu Lateral)
+            <Zap className="mr-2 h-4 w-4" />
+            Copiar Link p/ GHL (Iframe)
           </Button>
         )}
       </div>
@@ -117,8 +85,7 @@ export default function InstanceDashboard() {
           return (
             <Card
               key={instance.id}
-              className={`overflow-hidden border-2 transition-all cursor-pointer hover:shadow-xl rounded-2xl ${isConnected ? 'border-green-100' : 'border-slate-100 hover:border-primary/20'}`}
-              onClick={() => !isConnected && setSelectedInstance(instance)}
+              className={`overflow-hidden border-2 transition-all rounded-2xl ${isConnected ? 'border-green-100' : 'border-slate-100 shadow-sm'}`}
             >
               <CardContent className="p-0">
                 <div className={`p-6 border-b ${isConnected ? 'bg-green-50/30' : 'bg-muted/30'}`}>
@@ -198,13 +165,6 @@ export default function InstanceDashboard() {
                   )}
                 </div>
 
-                {!isConnected && (
-                  <div className="px-5 py-3 bg-primary/5 border-t text-center">
-                    <p className="text-[10px] font-bold text-primary flex items-center justify-center gap-1">
-                      <Info className="h-3 w-3" /> TOQUE PARA ABRIR DIÁLOGO
-                    </p>
-                  </div>
-                )}
               </CardContent>
             </Card>
           );
@@ -219,17 +179,6 @@ export default function InstanceDashboard() {
         )}
       </div>
 
-      {selectedInstance && (
-        <ConnectDialog
-          open={!!selectedInstance}
-          onOpenChange={(open) => !open && setSelectedInstance(null)}
-          instance={selectedInstance}
-          onSuccess={() => {
-            setSelectedInstance(null);
-            refetch();
-          }}
-        />
-      )}
     </div>
   );
 }

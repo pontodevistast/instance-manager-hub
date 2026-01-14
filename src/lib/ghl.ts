@@ -11,6 +11,24 @@ interface GHLMenuLinkOptions {
     showOnLocation?: boolean;
 }
 
+export async function listGHLMenuLinks(token: string) {
+    const url = 'https://services.leadconnectorhq.com/custom-menu-link/';
+
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Version': '2021-07-28'
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error(`Erro ao listar menus GHL: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
 export async function createGHLMenuLink(
     token: string,
     options: GHLMenuLinkOptions
@@ -24,7 +42,7 @@ export async function createGHLMenuLink(
         openMode: options.openMode || 'iframe',
         showOnCompany: options.showOnCompany ?? false,
         showOnLocation: options.showOnLocation ?? true,
-        showToAllLocations: false, // Defaulting to the current location implicit in the token or specific to the user's intent
+        showToAllLocations: false,
     };
 
     const response = await fetch(url, {
