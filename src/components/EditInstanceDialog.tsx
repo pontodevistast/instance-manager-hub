@@ -44,9 +44,15 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
     async function fetchUsers() {
       if (open && config?.ghl_token && instance.location_id) {
         setIsLoadingUsers(true);
-        console.log('[EditInstanceDialog] Fetching users with token:', config.ghl_token);
         try {
-          const users = await listGHLUsers(config.ghl_token, instance.location_id);
+          // Fetch agency token for fallback
+          const { data: agencyData } = await supabase
+            .from('ghl_agency_tokens')
+            .select('access_token')
+            .limit(1)
+            .single();
+
+          const users = await listGHLUsers(config.ghl_token, instance.location_id, agencyData?.access_token || undefined);
           console.log('[EditInstanceDialog] Users fetched:', users);
           setGhlUsers(users);
         } catch (err: any) {
@@ -199,14 +205,7 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
 
         {confirmType === 'none' ? (
           <div className="space-y-4 py-2">
-            {/* DEBUG SECTION */}
-            <div className="bg-slate-950 text-green-400 p-2 rounded text-[10px] font-mono border border-green-900 break-all">
-              <p>DEBUG INFO:</p>
-              <p>LocID: {instance.location_id}</p>
-              <p>Token: {config?.ghl_token ? `${config.ghl_token.substring(0, 10)}...` : 'MISSING'}</p>
-              <p>Users: {ghlUsers.length}</p>
-              <p>Loading: {isLoadingUsers ? 'YES' : 'NO'}</p>
-            </div>
+
 
             <div className="space-y-2">
               <Label>Nome</Label>

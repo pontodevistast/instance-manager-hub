@@ -61,7 +61,13 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
       if (open && config?.ghl_token && locationId) {
         setIsLoadingUsers(true);
         try {
-          const users = await listGHLUsers(config.ghl_token, locationId);
+          const { data: agencyData } = await supabase
+            .from('ghl_agency_tokens')
+            .select('access_token')
+            .limit(1)
+            .single();
+
+          const users = await listGHLUsers(config.ghl_token, locationId, agencyData?.access_token || undefined);
           setGhlUsers(users);
         } catch (err: any) {
           console.error('Erro ao carregar usuários:', err);
