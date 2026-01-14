@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useSubaccountConfig } from '@/hooks/use-subaccount-config';
 import { uazapiFetch } from '@/lib/uazapi';
+import { useInstanceActions } from '@/hooks/use-instance-actions';
 import type { Instance, InstanceStatus } from '@/types/instance';
 
 interface InstanceCardProps {
@@ -20,11 +21,12 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
   const [isConnectOpen, setIsConnectOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [liveStatus, setLiveStatus] = useState<InstanceStatus>(instance.status);
+  const [qrCode, setQrCode] = useState<string | null>(null);
 
   const { toast } = useToast();
   const { data: config } = useSubaccountConfig(instance.location_id);
+  const { handleLogout, fetchQrCode, isDisconnecting, isFetchingQr } = useInstanceActions(instance.location_id);
 
   const checkRealStatus = useCallback(async (silent = false) => {
     if (!config?.api_base_url || !instance.instance_token) return;
@@ -57,40 +59,30 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
     }
   }, [config, instance.instance_token, instance.id, liveStatus, toast]);
 
+  const loadQrCode = useCallback(async () => {
+    if (!config?.api_base_url || liveStatus !== 'disconnected') return;
+    const qr = await fetchQrCode(instance, config.api_base_url);
+    if (qr) setQrCode(qr);
+  }, [config, liveStatus, instance, fetchQrCode]);
+
   useEffect(() => {
     checkRealStatus(true);
   }, []);
 
-  const handleLogout = async () => {
-    if (!config?.api_base_url || !instance.instance_token) return;
-
-    setIsDisconnecting(true);
-    try {
-      // Tenta logout para limpar a sessão no servidor
-      await uazapiFetch(config.api_base_url, '/instance/logout', {
-        method: 'POST',
-        instanceToken: instance.instance_token
-      }).catch(() => {
-        // Fallback para disconnect se logout não existir/falhar
-        return uazapiFetch(config.api_base_url!, '/instance/disconnect', {
-          method: 'POST',
-          instanceToken: instance.instance_token!
-        });
-      });
-
-      await supabase
-        .from('instances')
-        .update({ status: 'disconnected', qr_code: null })
-        .eq('id', instance.id);
-
-      setLiveStatus('disconnected');
-      toast({ title: 'Desconectado', description: 'WhatsApp desvinculado e sessão encerrada.' });
-      onRefresh();
-    } catch (error: any) {
-      toast({ title: 'Erro ao desconectar', description: error.message, variant: 'destructive' });
-    } finally {
-      setIsDisconnecting(false);
+  useEffect(() => {
+    if (liveStatus === 'disconnected') {
+      loadQrCode();
+    } else {
+      setQrCode(null);
     }
+  }, [liveStatus, loadQrCode]);
+
+  const onLogout = async () => {
+    if (!config?.api_base_url) return;
+    await handleLogout(instance, config.api_base_url, () => {
+      setLiveStatus('disconnected');
+      onRefresh();
+    });
   };
 
   return (
@@ -126,7 +118,7 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
           </div>
         </CardHeader>
 
-        <CardContent className="px-5 py-4 flex-1 flex flex-col items-center justify-center">
+        <CardContent className="px-5 py-4 flex-1 flex flex-col items-center justify-center min-h-[200px]">
           {liveStatus === 'connected' ? (
             <div className="text-center animate-in fade-in zoom-in duration-300">
               <div className="mx-auto w-12 h-12 bg-green-50 dark:bg-green-900/20 rounded-full flex items-center justify-center mb-3">
@@ -144,12 +136,32 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
               <p className="text-[11px] text-muted-foreground mt-1">Sessão travada ou inválida</p>
             </div>
           ) : (
-            <div className="text-center">
-              <div className="mx-auto w-12 h-12 bg-slate-50 dark:bg-slate-900 rounded-full flex items-center justify-center mb-3 border border-dashed border-slate-200">
-                <QrCode className="w-6 h-6 text-slate-400" />
-              </div>
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Desconectado</p>
-              <p className="text-[11px] text-muted-foreground mt-1">Aguardando vinculação</p>
+            <div className="text-center w-full flex flex-col items-center">
+              {qrCode ? (
+                <div className="relative group/qr">
+                  <img src={qrCode} alt="QR Code" className="w-32 h-32 object-contain rounded-lg border p-1 bg-white shadow-sm" />
+                  <Button
+                    size="icon"
+                    variant="secondary"
+                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover/qr:opacity-100 transition-opacity"
+                    onClick={loadQrCode}
+                  >
+                    <RefreshCw className={`h-3 w-3 ${isFetchingQr ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
+              ) : (
+                <div className="mx-auto w-12 h-12 bg-slate-50 dark:bg-slate-900 rounded-full flex items-center justify-center mb-3 border border-dashed border-slate-200">
+                  {isFetchingQr ? <Loader2 className="w-6 h-6 animate-spin text-primary/40" /> : <QrCode className="w-6 h-6 text-slate-400" />}
+                </div>
+              )}
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mt-2">
+                {qrCode ? 'ESCANEIE PARA CONECTAR' : 'Desconectado'}
+              </p>
+              {!qrCode && !isFetchingQr && (
+                <Button variant="link" className="text-[10px] h-auto p-0 text-muted-foreground mt-1" onClick={loadQrCode}>
+                  Gerar QR Code agora
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
@@ -160,7 +172,7 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
               <Button
                 variant="destructive"
                 className="w-full h-10 text-xs font-bold rounded-xl"
-                onClick={handleLogout}
+                onClick={onLogout}
                 disabled={isDisconnecting}
               >
                 {isDisconnecting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Unplug className="w-3.5 h-3.5 mr-2" />}
