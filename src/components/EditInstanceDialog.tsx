@@ -44,8 +44,10 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
     async function fetchUsers() {
       if (open && config?.ghl_token && instance.location_id) {
         setIsLoadingUsers(true);
+        console.log('[EditInstanceDialog] Fetching users with token:', config.ghl_token);
         try {
           const users = await listGHLUsers(config.ghl_token, instance.location_id);
+          console.log('[EditInstanceDialog] Users fetched:', users);
           setGhlUsers(users);
         } catch (err: any) {
           console.error('Erro ao carregar usuários:', err);
@@ -80,13 +82,17 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
       });
 
       const instanceList = (Array.isArray(allInstances) ? allInstances : (allInstances.instances || [])) as any[];
+      console.log('[EditInstanceDialog] Server Instances:', instanceList);
+
       const remoteInstance = instanceList.find((i: any) => i.token === instance.instance_token);
 
       if (!remoteInstance?.id) {
+        console.error('[EditInstanceDialog] Instance mismatched:', instance.instance_token, 'Available:', instanceList);
         throw new Error('Instância não encontrada no servidor UaZapi (Token mismatch).');
       }
 
       const serverId = remoteInstance.id;
+      console.log('[EditInstanceDialog] Resolved Server ID:', serverId);
 
       if (name !== instance.instance_name) {
         await uazapiFetch(config.api_base_url, '/instance/updateInstanceName', {
@@ -193,6 +199,15 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
 
         {confirmType === 'none' ? (
           <div className="space-y-4 py-2">
+            {/* DEBUG SECTION */}
+            <div className="bg-slate-950 text-green-400 p-2 rounded text-[10px] font-mono border border-green-900 break-all">
+              <p>DEBUG INFO:</p>
+              <p>LocID: {instance.location_id}</p>
+              <p>Token: {config?.ghl_token ? `${config.ghl_token.substring(0, 10)}...` : 'MISSING'}</p>
+              <p>Users: {ghlUsers.length}</p>
+              <p>Loading: {isLoadingUsers ? 'YES' : 'NO'}</p>
+            </div>
+
             <div className="space-y-2">
               <Label>Nome</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} />

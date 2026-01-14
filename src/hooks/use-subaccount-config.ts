@@ -28,6 +28,12 @@ export function useSubaccountConfig(locationId: string | null) {
         global_api_token: globalData?.global_api_token || import.meta.env.VITE_UAZAPI_ADMIN_TOKEN || '',
       };
 
+      console.log('[useSubaccountConfig] Debug:', {
+        locationId,
+        localToken: localData?.ghl_token,
+        globalVars
+      });
+
       // Merge: local values override global values
       return {
         ...localData,
