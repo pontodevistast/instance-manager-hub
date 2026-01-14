@@ -11,7 +11,7 @@ import LogsPage from "@/pages/LogsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import ManagerPage from "@/pages/ManagerPage";
 import InstanceDashboard from "@/pages/InstanceDashboard";
-import GHLCallback from "@/pages/GHLCallback";
+import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,7 +24,7 @@ const App = () => (
         <Sonner />
         <Routes>
           <Route path="/" element={<ManagerPage />} />
-          <Route path="/ghl-callback" element={<GHLCallback />} />
+          <Route path="/callback" element={<AuthCallback />} />
           
           <Route 
             path="/:locationId" 

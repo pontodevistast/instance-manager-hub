@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 
-export default function GHLCallback() {
+export default function AuthCallback() {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
@@ -21,13 +21,11 @@ export default function GHLCallback() {
 
     async function processAuth() {
       try {
-        // Nota: Em um cenário real, Client ID e Secret estariam no backend/edge secrets
-        // Aqui pediremos para o usuário configurar antes ou passaremos via UI para simplificar o setup
         const clientId = localStorage.getItem('ghl_client_id');
         const clientSecret = localStorage.getItem('ghl_client_secret');
 
         if (!clientId || !clientSecret) {
-          throw new Error('Configure o Client ID e Secret no painel antes de conectar.');
+          throw new Error('Configure as credenciais no painel antes de conectar.');
         }
 
         const response = await fetch('https://onanrpmrgdfjsrtwckxi.supabase.co/functions/v1/ghl-auth', {
@@ -37,14 +35,13 @@ export default function GHLCallback() {
             code,
             clientId,
             clientSecret,
-            redirectUri: window.location.origin + '/ghl-callback'
+            redirectUri: window.location.origin + '/callback'
           })
         });
 
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Erro ao sincronizar');
 
-        // Salva os tokens na nossa tabela
         await supabase.from('ghl_agency_tokens').insert({
           access_token: data.access_token,
           refresh_token: data.refresh_token,
@@ -54,7 +51,7 @@ export default function GHLCallback() {
         });
 
         setStatus('success');
-        toast({ title: 'GHL Conectado!', description: 'Sincronizando subcontas...' });
+        toast({ title: 'Conectado!', description: 'Sincronizando contas...' });
         
         setTimeout(() => navigate('/'), 2000);
       } catch (err: any) {
@@ -73,7 +70,7 @@ export default function GHLCallback() {
           <>
             <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
             <h2 className="text-xl font-bold">Autenticando...</h2>
-            <p className="text-sm text-muted-foreground">Estamos vinculando sua conta GHL ao sistema.</p>
+            <p className="text-sm text-muted-foreground">Estamos vinculando sua conta ao sistema.</p>
           </>
         )}
         {status === 'success' && (

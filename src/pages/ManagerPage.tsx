@@ -41,7 +41,7 @@ export default function ManagerPage() {
       'contacts.readonly'
     ].join(' ');
     
-    const redirectUri = window.location.origin + '/ghl-callback';
+    const redirectUri = window.location.origin + '/callback';
     const authUrl = `https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=${redirectUri}&client_id=${ghlCreds.clientId}&scope=${scopes}`;
     
     window.location.href = authUrl;
@@ -57,11 +57,11 @@ export default function ManagerPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Dashboard Gestor</h1>
-            <p className="text-muted-foreground">Gerencie todas as suas subcontas GoHighLevel.</p>
+            <p className="text-muted-foreground">Gerencie todas as suas subcontas conectadas.</p>
           </div>
           <div className="flex gap-3">
             <Button variant="outline" onClick={() => setIsGhlModalOpen(true)}>
-              <Zap className="h-4 w-4 mr-2 text-amber-500" /> Sincronizar GHL
+              <Zap className="h-4 w-4 mr-2 text-amber-500" /> Sincronizar CRM
             </Button>
             <Button onClick={() => setIsAddOpen(true)} className="shadow-lg">
               <Plus className="h-4 w-4 mr-2" /> Nova Subconta
@@ -146,9 +146,9 @@ export default function ManagerPage() {
       <Dialog open={isGhlModalOpen} onOpenChange={setIsGhlModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Conectar ao GoHighLevel</DialogTitle>
+            <DialogTitle>Conectar ao CRM</DialogTitle>
             <DialogDescription>
-              Insira as credenciais do seu App no Marketplace do GHL.
+              Insira as credenciais do seu aplicativo para sincronizar subcontas.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -169,9 +169,9 @@ export default function ManagerPage() {
               />
             </div>
             <div className="bg-muted p-3 rounded-lg text-[10px] space-y-1">
-              <p className="font-bold">Redirect URI para configurar no GHL:</p>
+              <p className="font-bold">Redirect URI para configurar no portal:</p>
               <code className="block bg-background p-1 rounded border overflow-x-auto">
-                {window.location.origin}/ghl-callback
+                {window.location.origin}/callback
               </code>
             </div>
             <Button className="w-full" onClick={handleGhlConnect} disabled={!ghlCreds.clientId || !ghlCreds.clientSecret}>
