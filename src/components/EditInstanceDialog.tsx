@@ -74,25 +74,41 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
     if (!name.trim() || !config?.api_base_url) return;
     setIsLoading(true);
     try {
+      // 1. Fetch server instance details to get the correct short ID
+      const allInstances = await uazapiFetch(config.api_base_url, '/instance/all', {
+        adminToken: config.api_token || undefined
+      });
+
+      const instanceList = (Array.isArray(allInstances) ? allInstances : (allInstances.instances || [])) as any[];
+      const remoteInstance = instanceList.find((i: any) => i.token === instance.instance_token);
+
+      if (!remoteInstance?.id) {
+        throw new Error('Instância não encontrada no servidor UaZapi (Token mismatch).');
+      }
+
+      const serverId = remoteInstance.id;
+
       if (name !== instance.instance_name) {
         await uazapiFetch(config.api_base_url, '/instance/updateInstanceName', {
           method: 'POST',
           adminToken: config.api_token || undefined,
           body: {
-            id: instance.instance_token,
+            id: serverId,
             name: name.trim()
           }
         });
       }
+
       await uazapiFetch(config.api_base_url, '/instance/updateAdminFields', {
         method: 'POST',
         adminToken: config.api_token || undefined,
         body: {
-          id: instance.instance_token,
+          id: serverId,
           adminField01: adminField01.trim(),
           adminField02: ghlUserId === 'none' ? '' : ghlUserId
         }
       });
+
       const { error } = await supabase
         .from('instances')
         .update({
