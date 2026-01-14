@@ -12,7 +12,7 @@ interface RequestOptions {
 
 export async function uazapiFetch(baseUrl: string, endpoint: string, options: RequestOptions = {}) {
   const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-  
+
   const headers: Record<string, string> = {
     'Accept': 'application/json, text/plain, */*',
   };
@@ -21,7 +21,7 @@ export async function uazapiFetch(baseUrl: string, endpoint: string, options: Re
     headers['Content-Type'] = 'application/json';
   }
 
-  if (options.adminToken) {
+  if (options.adminToken !== undefined) {
     headers['admintoken'] = options.adminToken;
   }
 

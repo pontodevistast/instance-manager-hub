@@ -23,11 +23,16 @@ export function useSubaccountConfig(locationId: string | null) {
 
       if (error) throw error;
 
+      const globalVars = {
+        api_base_url: globalData?.api_base_url || import.meta.env.VITE_UAZAPI_BASE_URL || 'https://api.uazapi.com',
+        global_api_token: globalData?.global_api_token || import.meta.env.VITE_UAZAPI_ADMIN_TOKEN || '',
+      };
+
       // Merge: local values override global values
       return {
         ...localData,
-        api_base_url: localData?.api_base_url || globalData?.api_base_url || 'https://kanbro.uazapi.com',
-        api_token: localData?.api_token || globalData?.global_api_token || '',
+        api_base_url: localData?.api_base_url || globalVars.api_base_url,
+        api_token: localData?.api_token || globalVars.global_api_token,
       };
     },
     enabled: !!locationId,

@@ -18,6 +18,7 @@ import { useSubaccountConfig } from '@/hooks/use-subaccount-config';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Plus, Info, Check, User } from 'lucide-react';
 import { listGHLUsers } from '@/lib/ghl';
+import { uazapiFetch } from '@/lib/uazapi';
 import { cn } from '@/lib/utils';
 
 interface AddInstanceDialogProps {
@@ -78,32 +79,21 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
   }, [open, config?.ghl_token, locationId]);
 
   const fetchRemoteInstances = async () => {
+    if (!config?.api_base_url) return;
     setIsLoadingRemote(true);
     try {
-      // 1. Fetch from server
-      const response = await fetch(`${config?.api_base_url}/instance/all`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'admintoken': config?.api_token || ''
-        }
+      const data = await uazapiFetch(config.api_base_url, '/instance/all', {
+        adminToken: config.api_token || undefined
       });
 
-      if (!response.ok) throw new Error('Falha ao buscar instâncias.');
-
-      const data = await response.json();
       const list = (Array.isArray(data) ? data : (data.instances || [])) as RemoteInstance[];
 
-      // 2. Fetch ALL linked tokens from DB to prevent duplicates across any subaccount
       const { data: allLinked } = await supabase
         .from('instances')
         .select('instance_token');
 
       const linkedTokens = new Set(allLinked?.map(i => i.instance_token) || []);
-
-      // Filtra as que NÃO estão em NENHUMA subconta
       const filtered = list.filter((remote) => !linkedTokens.has(remote.token));
-
       setRemoteInstances(filtered);
     } catch (error: any) {
       toast({ title: 'Erro de Busca', description: error.message, variant: 'destructive' });
@@ -136,24 +126,18 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
     try {
       if (mode === 'new') {
         if (!name.trim()) throw new Error('Nome obrigatório.');
-        const response = await fetch(`${config?.api_base_url}/instance/init`, {
+        const data = await uazapiFetch(config!.api_base_url!, '/instance/init', {
           method: 'POST',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'admintoken': config?.api_token || ''
-          },
-          body: JSON.stringify({
+          adminToken: config!.api_token || undefined,
+          body: {
             name: name.trim(),
             systemName: systemName || 'uazapiGO',
             adminField01: locationId,
             fingerprintProfile: "chrome",
             browser: "chrome"
-          })
+          }
         });
 
-        if (!response.ok) throw new Error('Erro ao criar no servidor.');
-        const data = await response.json();
         const finalInstanceToken = data.token || data.instance?.token;
 
         const { error: dbError } = await supabase.from('instances').insert({
