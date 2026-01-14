@@ -12,6 +12,8 @@ import { useInstanceActions } from '@/hooks/use-instance-actions';
 import { useSubaccountConfig } from '@/hooks/use-subaccount-config';
 import type { Instance } from '@/types/instance';
 
+import { createGHLMenuLink } from '@/lib/ghl';
+
 export default function InstanceDashboard() {
   const { locationId } = useLocation();
   const { instances, isLoading, refetch } = useInstances(locationId);
@@ -25,17 +27,38 @@ export default function InstanceDashboard() {
   const [qrCodes, setQrCodes] = useState<Record<string, string>>({});
 
   const handleCreateGHLMenu = async () => {
-    if (!locationId) return;
+    if (!locationId || !config?.ghl_token) {
+      toast({
+        title: "Token GHL ausente",
+        description: "Certifique-se de configurar o token do GHL na página de integração primeiro.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsGhlLoading(true);
     try {
       const dashboardUrl = `${window.location.origin}/${locationId}/dashboard?iframe=true`;
-      toast({
-        title: "Integrar no GHL",
-        description: "Botão configurado! O sistema criará um link direto para este painel no seu menu lateral do GHL.",
+
+      await createGHLMenuLink(config.ghl_token, {
+        title: "Instâncias WhatsApp",
+        url: dashboardUrl,
+        icon: "smartphone",
+        openMode: "iframe"
       });
-      console.log("Criando Custom Menu Link para:", dashboardUrl);
+
+      toast({
+        title: "Sucesso!",
+        description: "Menu lateral criado no GHL! Recarregue o painel do GHL para ver a nova opção.",
+      });
+
     } catch (error: any) {
-      toast({ title: "Erro na integração", description: error.message, variant: "destructive" });
+      console.error("Erro ao criar menu GHL:", error);
+      toast({
+        title: "Erro na integração",
+        description: error.message || "Não foi possível criar o menu no GHL automaticamente.",
+        variant: "destructive"
+      });
     } finally {
       setIsGhlLoading(false);
     }

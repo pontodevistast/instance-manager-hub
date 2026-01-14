@@ -3,16 +3,59 @@ import { InstanceCard } from '@/components/InstanceCard';
 import { InstanceCardSkeleton } from '@/components/InstanceCardSkeleton';
 import { Button } from '@/components/ui/button';
 import { AddInstanceDialog } from '@/components/AddInstanceDialog';
-import { Plus, RefreshCw, Smartphone, PlusCircle, Zap } from 'lucide-react';
+import { Plus, RefreshCw, Smartphone, PlusCircle, Zap, Loader2 } from 'lucide-react';
 import { useInstances } from '@/hooks/use-instances';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+
+import { useSubaccountConfig } from '@/hooks/use-subaccount-config';
+import { createGHLMenuLink } from '@/lib/ghl';
 
 export default function InstancesPage() {
   const { locationId } = useLocation();
   const { instances, isLoading, refetch } = useInstances(locationId);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isGhlLoading, setIsGhlLoading] = useState(false);
   const { toast } = useToast();
+  const { data: config } = useSubaccountConfig(locationId);
+
+  const handleCreateGHLMenu = async () => {
+    if (!locationId || !config?.ghl_token) {
+      toast({
+        title: "Token GHL ausente",
+        description: "Certifique-se de configurar o token do GHL na página de integração primeiro.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGhlLoading(true);
+    try {
+      const dashboardUrl = `${window.location.origin}/${locationId}/dashboard?iframe=true`;
+
+      await createGHLMenuLink(config.ghl_token, {
+        title: "Instâncias WhatsApp",
+        url: dashboardUrl,
+        icon: "smartphone",
+        openMode: "iframe"
+      });
+
+      toast({
+        title: "Sucesso!",
+        description: "Menu lateral criado no GHL! Recarregue o painel do GHL para ver a nova opção.",
+      });
+
+    } catch (error: any) {
+      console.error("Erro ao criar menu GHL:", error);
+      toast({
+        title: "Erro na integração",
+        description: error.message || "Não foi possível criar o menu no GHL automaticamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGhlLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-8 max-w-[1600px] mx-auto">
@@ -26,14 +69,11 @@ export default function InstancesPage() {
         <div className="flex gap-3">
           <Button
             variant="outline"
-            onClick={() => {
-              const url = `${window.location.origin}/${locationId}/dashboard?iframe=true`;
-              navigator.clipboard.writeText(url);
-              toast({ title: "URL Copiada!", description: "Use esta URL no Custom Menu Link do GHL." });
-            }}
+            onClick={handleCreateGHLMenu}
+            disabled={isGhlLoading}
             className="rounded-xl border-indigo-200 text-indigo-700 hover:bg-indigo-50"
           >
-            <Zap className="h-4 w-4 mr-2" />
+            {isGhlLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 mr-2" />}
             Conectar no GHL
           </Button>
           <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isLoading} className="rounded-xl">
