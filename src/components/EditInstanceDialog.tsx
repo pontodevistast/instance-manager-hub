@@ -93,26 +93,48 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
       const serverId = remoteInstance.id;
       console.log('[EditInstanceDialog] Resolved Server ID:', serverId);
 
+      // 2. Update Name (Try Admin Token, fallback to Instance Token)
       if (name !== instance.instance_name) {
-        await uazapiFetch(config.api_base_url, '/instance/updateInstanceName', {
+        try {
+          // Attempt 1: Admin Token
+          await uazapiFetch(config.api_base_url, '/instance/updateInstanceName', {
+            method: 'POST',
+            adminToken: config.api_token || undefined,
+            body: { id: serverId, name: name.trim() }
+          });
+        } catch (nameError) {
+          console.warn('Falha ao atualizar nome com Admin Token, tentando Instance Token...', nameError);
+          // Attempt 2: Instance Token (User Hypothesis)
+          await uazapiFetch(config.api_base_url, '/instance/updateInstanceName', {
+            method: 'POST',
+            instanceToken: instance.instance_token,
+            body: { id: serverId, name: name.trim() }
+          }).catch(e => {
+            console.error('Falha ao atualizar nome com Instance Token:', e);
+            toast({
+              title: 'Aviso',
+              description: 'Nome não atualizado no servidor UaZapi. Verifique as permissões.',
+              variant: 'destructive'
+            });
+          });
+        }
+      }
+
+      // 3. Update Admin Fields (Non-blocking)
+      try {
+        await uazapiFetch(config.api_base_url, '/instance/updateAdminFields', {
           method: 'POST',
           adminToken: config.api_token || undefined,
           body: {
             id: serverId,
-            name: name.trim()
+            adminField01: adminField01.trim(),
+            adminField02: ghlUserId === 'none' ? '' : ghlUserId
           }
         });
+      } catch (fieldsError) {
+        console.error('Falha ao atualizar Admin Fields:', fieldsError);
+        // Don't block flow, user primarily wants to link user locally
       }
-
-      await uazapiFetch(config.api_base_url, '/instance/updateAdminFields', {
-        method: 'POST',
-        adminToken: config.api_token || undefined,
-        body: {
-          id: serverId,
-          adminField01: adminField01.trim(),
-          adminField02: ghlUserId === 'none' ? '' : ghlUserId
-        }
-      });
 
       const { error } = await supabase
         .from('instances')
