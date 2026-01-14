@@ -13,12 +13,19 @@ export default function GlobalSettingsPage() {
     const { toast } = useToast();
 
     const [settings, setSettings] = useState({
-        api_base_url: 'https://api.uazapi.com',
-        global_api_token: '',
-        ghl_client_id: '',
-        ghl_client_secret: '',
+        api_base_url: import.meta.env.VITE_UAZAPI_BASE_URL || 'https://api.uazapi.com',
+        global_api_token: import.meta.env.VITE_UAZAPI_ADMIN_TOKEN || '',
+        ghl_client_id: import.meta.env.VITE_GHL_CLIENT_ID || '',
+        ghl_client_secret: import.meta.env.VITE_GHL_CLIENT_SECRET || '',
         webhook_url: '',
     });
+
+    const isEnvManaged = {
+        api_base_url: !!import.meta.env.VITE_UAZAPI_BASE_URL,
+        global_api_token: !!import.meta.env.VITE_UAZAPI_ADMIN_TOKEN,
+        ghl_client_id: !!import.meta.env.VITE_GHL_CLIENT_ID,
+        ghl_client_secret: !!import.meta.env.VITE_GHL_CLIENT_SECRET,
+    };
 
     useEffect(() => {
         async function fetchSettings() {
@@ -31,10 +38,10 @@ export default function GlobalSettingsPage() {
 
                 if (data) {
                     setSettings({
-                        api_base_url: data.api_base_url || 'https://api.uazapi.com',
-                        global_api_token: data.global_api_token || '',
-                        ghl_client_id: data.ghl_client_id || '',
-                        ghl_client_secret: data.ghl_client_secret || '',
+                        api_base_url: import.meta.env.VITE_UAZAPI_BASE_URL || data.api_base_url || 'https://api.uazapi.com',
+                        global_api_token: import.meta.env.VITE_UAZAPI_ADMIN_TOKEN || data.global_api_token || '',
+                        ghl_client_id: import.meta.env.VITE_GHL_CLIENT_ID || data.ghl_client_id || '',
+                        ghl_client_secret: import.meta.env.VITE_GHL_CLIENT_SECRET || data.ghl_client_secret || '',
                         webhook_url: data.webhook_url || '',
                     });
                 }
@@ -80,6 +87,11 @@ export default function GlobalSettingsPage() {
                 <div>
                     <h1 className="text-3xl font-extrabold tracking-tight">Configurações Globais</h1>
                     <p className="text-muted-foreground">Gerencie credenciais de nível Agência que afetam todas as subcontas.</p>
+                    {Object.values(isEnvManaged).some(v => v) && (
+                        <p className="text-xs text-blue-600 font-medium mt-1">
+                            * Alguns campos estão bloqueados pois são gerenciados via arquivo .env
+                        </p>
+                    )}
                 </div>
                 <Button onClick={handleSave} disabled={isSaving} className="rounded-xl shadow-lg h-11 px-8">
                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
@@ -105,6 +117,7 @@ export default function GlobalSettingsPage() {
                                     onChange={(e) => setSettings({ ...settings, api_base_url: e.target.value })}
                                     placeholder="https://apiUrl.uazapi.com"
                                     className="h-11 rounded-lg"
+                                    disabled={isEnvManaged.api_base_url}
                                 />
                             </div>
                             <div className="space-y-2">
@@ -116,6 +129,7 @@ export default function GlobalSettingsPage() {
                                     onChange={(e) => setSettings({ ...settings, global_api_token: e.target.value })}
                                     placeholder="Token administrativo do servidor"
                                     className="h-11 rounded-lg"
+                                    disabled={isEnvManaged.global_api_token}
                                 />
                             </div>
                         </div>
@@ -150,6 +164,7 @@ export default function GlobalSettingsPage() {
                                     onChange={(e) => setSettings({ ...settings, ghl_client_id: e.target.value })}
                                     placeholder="Seu GHL Client ID"
                                     className="h-11 rounded-lg"
+                                    disabled={isEnvManaged.ghl_client_id}
                                 />
                             </div>
                             <div className="space-y-2">
@@ -161,6 +176,7 @@ export default function GlobalSettingsPage() {
                                     onChange={(e) => setSettings({ ...settings, ghl_client_secret: e.target.value })}
                                     placeholder="Seu GHL Client Secret"
                                     className="h-11 rounded-lg"
+                                    disabled={isEnvManaged.ghl_client_secret}
                                 />
                             </div>
                         </div>

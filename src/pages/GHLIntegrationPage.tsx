@@ -47,23 +47,23 @@ export default function GHLIntegrationPage() {
 
         if (localData) {
           setConfig({
-            ghl_token: localData.ghl_token || '',
+            ghl_token: localData.ghl_token || import.meta.env.VITE_GHL_TOKEN || '',
             account_name: localData.account_name || '',
-            api_base_url: localData.api_base_url || globalData?.api_base_url || 'https://kanbro.uazapi.com',
-            api_token: localData.api_token || globalData?.global_api_token || '',
+            api_base_url: localData.api_base_url || import.meta.env.VITE_UAZAPI_BASE_URL || globalData?.api_base_url || 'https://kanbro.uazapi.com',
+            api_token: localData.api_token || import.meta.env.VITE_UAZAPI_ADMIN_TOKEN || globalData?.global_api_token || '',
             ignore_groups: localData.ignore_groups ?? true,
           });
-        } else if (globalData) {
+        } else if (globalData || import.meta.env.VITE_UAZAPI_BASE_URL) {
           setConfig(prev => ({
             ...prev,
-            api_base_url: globalData.api_base_url,
-            api_token: globalData.global_api_token || '',
+            api_base_url: import.meta.env.VITE_UAZAPI_BASE_URL || globalData?.api_base_url || prev.api_base_url,
+            api_token: import.meta.env.VITE_UAZAPI_ADMIN_TOKEN || globalData?.global_api_token || '',
           }));
         }
 
         // Fetch Webhook Global if available
-        const effectiveUrl = localData?.api_base_url || globalData?.api_base_url;
-        const effectiveToken = localData?.api_token || globalData?.global_api_token;
+        const effectiveUrl = localData?.api_base_url || import.meta.env.VITE_UAZAPI_BASE_URL || globalData?.api_base_url;
+        const effectiveToken = localData?.api_token || import.meta.env.VITE_UAZAPI_ADMIN_TOKEN || globalData?.global_api_token;
 
         if (effectiveUrl && effectiveToken) {
           try {

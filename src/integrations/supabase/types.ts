@@ -54,44 +54,32 @@ export type Database = {
                 Row: {
                     account_name: string | null
                     api_base_url: string | null
-                    api_instance_name: string | null
                     api_token: string | null
                     created_at: string | null
                     ghl_token: string | null
-                    id: string
                     ignore_groups: boolean | null
                     location_id: string
-                    responder_com_instacia: boolean | null
                     updated_at: string | null
-                    user_id: string | null
                 }
                 Insert: {
                     account_name?: string | null
                     api_base_url?: string | null
-                    api_instance_name?: string | null
                     api_token?: string | null
                     created_at?: string | null
                     ghl_token?: string | null
-                    id?: string
                     ignore_groups?: boolean | null
                     location_id: string
-                    responder_com_instacia?: boolean | null
                     updated_at?: string | null
-                    user_id?: string | null
                 }
                 Update: {
                     account_name?: string | null
                     api_base_url?: string | null
-                    api_instance_name?: string | null
                     api_token?: string | null
                     created_at?: string | null
                     ghl_token?: string | null
-                    id?: string
                     ignore_groups?: boolean | null
                     location_id?: string
-                    responder_com_instacia?: boolean | null
                     updated_at?: string | null
-                    user_id?: string | null
                 }
                 Relationships: []
             }
@@ -161,36 +149,23 @@ export type Database = {
                 }
                 Relationships: []
             }
-            logs: {
+        }
+        Views: {
+            unified_instance_ghl: {
                 Row: {
-                    content: string | null
-                    created_at: string | null
-                    id: string
-                    instance_id: string | null
+                    account_name: string | null
+                    api_admin_token: string | null
+                    api_base_url: string | null
+                    ghl_subaccount_token: string | null
+                    global_webhook_url: string | null
+                    ignore_groups: boolean | null
+                    instance_name: string | null
+                    instance_status: string | null
                     location_id: string | null
-                    type: string | null
-                }
-                Insert: {
-                    content?: string | null
-                    created_at?: string | null
-                    id?: string
-                    instance_id?: string | null
-                    location_id?: string | null
-                    type?: string | null
-                }
-                Update: {
-                    content?: string | null
-                    created_at?: string | null
-                    id?: string
-                    instance_id?: string | null
-                    location_id?: string | null
-                    type?: string | null
+                    uazapi_instance_token: string | null
                 }
                 Relationships: []
             }
-        }
-        Views: {
-            [_ in never]: never
         }
         Functions: {
             [_ in never]: never
