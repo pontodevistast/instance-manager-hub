@@ -3,14 +3,16 @@ import { InstanceCard } from '@/components/InstanceCard';
 import { InstanceCardSkeleton } from '@/components/InstanceCardSkeleton';
 import { Button } from '@/components/ui/button';
 import { AddInstanceDialog } from '@/components/AddInstanceDialog';
-import { Plus, RefreshCw, Smartphone, PlusCircle } from 'lucide-react';
+import { Plus, RefreshCw, Smartphone, PlusCircle, Zap } from 'lucide-react';
 import { useInstances } from '@/hooks/use-instances';
 import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function InstancesPage() {
   const { locationId } = useLocation();
   const { instances, isLoading, refetch } = useInstances(locationId);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const { toast } = useToast();
 
   return (
     <div className="space-y-8 max-w-[1600px] mx-auto">
@@ -22,6 +24,18 @@ export default function InstancesPage() {
           <p className="text-slate-500 mt-1">Gerencie suas conexões do WhatsApp e status em tempo real.</p>
         </div>
         <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => {
+              const url = `${window.location.origin}/${locationId}/dashboard?iframe=true`;
+              navigator.clipboard.writeText(url);
+              toast({ title: "URL Copiada!", description: "Use esta URL no Custom Menu Link do GHL." });
+            }}
+            className="rounded-xl border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+          >
+            <Zap className="h-4 w-4 mr-2" />
+            Conectar no GHL
+          </Button>
           <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isLoading} className="rounded-xl">
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
@@ -33,7 +47,7 @@ export default function InstancesPage() {
       </div>
 
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <button 
+        <button
           onClick={() => setIsAddOpen(true)}
           className="flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 transition-all group bg-slate-50/50 dark:bg-slate-900/20 min-h-[300px]"
         >
@@ -59,11 +73,11 @@ export default function InstancesPage() {
       </div>
 
       {locationId && (
-        <AddInstanceDialog 
-          open={isAddOpen} 
-          onOpenChange={setIsAddOpen} 
-          locationId={locationId} 
-          onSuccess={refetch} 
+        <AddInstanceDialog
+          open={isAddOpen}
+          onOpenChange={setIsAddOpen}
+          locationId={locationId}
+          onSuccess={refetch}
         />
       )}
     </div>

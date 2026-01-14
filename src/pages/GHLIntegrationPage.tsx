@@ -16,7 +16,7 @@ export default function GHLIntegrationPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
-  
+
   const [config, setConfig] = useState({
     ghl_token: '',
     account_name: '',
@@ -28,34 +28,51 @@ export default function GHLIntegrationPage() {
   const [webhookUrl, setWebhookUrl] = useState('');
 
   useEffect(() => {
-    async function fetchConfig() {
+    async function fetchData() {
       if (!locationId) return;
       try {
-        const { data } = await supabase
+        // 1. Fetch Global Settings
+        const { data: globalData } = await supabase
+          .from('integration_settings')
+          .select('*')
+          .eq('location_id', 'agency')
+          .maybeSingle();
+
+        // 2. Fetch Location Settings
+        const { data: localData } = await supabase
           .from('ghl_uazapi_config')
           .select('*')
           .eq('location_id', locationId)
           .maybeSingle();
 
-        if (data) {
+        if (localData) {
           setConfig({
-            ghl_token: data.ghl_token || '',
-            account_name: data.account_name || '',
-            api_base_url: data.api_base_url || 'https://kanbro.uazapi.com',
-            api_token: data.api_token || '',
-            ignore_groups: data.ignore_groups ?? true,
+            ghl_token: localData.ghl_token || '',
+            account_name: localData.account_name || '',
+            api_base_url: localData.api_base_url || globalData?.api_base_url || 'https://kanbro.uazapi.com',
+            api_token: localData.api_token || globalData?.global_api_token || '',
+            ignore_groups: localData.ignore_groups ?? true,
           });
+        } else if (globalData) {
+          setConfig(prev => ({
+            ...prev,
+            api_base_url: globalData.api_base_url,
+            api_token: globalData.global_api_token || '',
+          }));
+        }
 
-          // Buscar Webhook Global se tiver API configurada
-          if (data.api_base_url && data.api_token) {
-            try {
-              const hookData = await uazapiFetch(data.api_base_url, '/globalwebhook', {
-                adminToken: data.api_token
-              });
-              setWebhookUrl(hookData.url || '');
-            } catch (e) {
-              console.warn('Falha ao buscar webhook global:', e);
-            }
+        // Fetch Webhook Global if available
+        const effectiveUrl = localData?.api_base_url || globalData?.api_base_url;
+        const effectiveToken = localData?.api_token || globalData?.global_api_token;
+
+        if (effectiveUrl && effectiveToken) {
+          try {
+            const hookData = await uazapiFetch(effectiveUrl, '/globalwebhook', {
+              adminToken: effectiveToken
+            });
+            setWebhookUrl(hookData.url || '');
+          } catch (e) {
+            console.warn('Falha ao buscar webhook:', e);
           }
         }
       } catch (err) {
@@ -64,7 +81,7 @@ export default function GHLIntegrationPage() {
         setIsLoading(false);
       }
     }
-    fetchConfig();
+    fetchData();
   }, [locationId]);
 
   const handleSaveAll = async () => {
@@ -140,21 +157,35 @@ export default function GHLIntegrationPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Bearer Token</Label>
-                  <Input type="password" value={config.ghl_token} onChange={(e) => setConfig({...config, ghl_token: e.target.value})} />
+                  <Input type="password" value={config.ghl_token} onChange={(e) => setConfig({ ...config, ghl_token: e.target.value })} />
                 </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="text-lg">API UaZapi (Servidor)</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-lg">API UaZapi (Servidor)</CardTitle>
+                <CardDescription className="text-[10px] text-blue-600 dark:text-blue-400 font-medium italic">
+                  * Estes campos são preenchidos automaticamente pelas Configurações Globais se vazios.
+                </CardDescription>
+              </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>API Base URL</Label>
-                  <Input value={config.api_base_url} onChange={(e) => setConfig({...config, api_base_url: e.target.value})} />
+                  <Input
+                    value={config.api_base_url}
+                    onChange={(e) => setConfig({ ...config, api_base_url: e.target.value })}
+                    placeholder="Herdado do Global"
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label>Global Admin Token</Label>
-                  <Input type="password" value={config.api_token} onChange={(e) => setConfig({...config, api_token: e.target.value})} />
+                  <Label>Admin Token (Opcional)</Label>
+                  <Input
+                    type="password"
+                    value={config.api_token}
+                    onChange={(e) => setConfig({ ...config, api_token: e.target.value })}
+                    placeholder="Preencha apenas se quiser sobrescrever o Global"
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -172,8 +203,8 @@ export default function GHLIntegrationPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>Endpoint URL</Label>
-                <Input 
-                  placeholder="https://sua-url.com/webhook" 
+                <Input
+                  placeholder="https://sua-url.com/webhook"
                   value={webhookUrl}
                   onChange={(e) => setWebhookUrl(e.target.value)}
                 />
@@ -202,9 +233,9 @@ export default function GHLIntegrationPage() {
                   <Label>Ignorar Mensagens de Grupos</Label>
                   <p className="text-sm text-muted-foreground">Não processa mensagens vindas de chats coletivos.</p>
                 </div>
-                <Switch 
+                <Switch
                   checked={config.ignore_groups}
-                  onCheckedChange={(checked) => setConfig({...config, ignore_groups: checked})}
+                  onCheckedChange={(checked) => setConfig({ ...config, ignore_groups: checked })}
                 />
               </div>
             </CardContent>

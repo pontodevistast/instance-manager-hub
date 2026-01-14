@@ -12,6 +12,7 @@ import SettingsPage from "@/pages/SettingsPage";
 import ManagerPage from "@/pages/ManagerPage";
 import InstanceDashboard from "@/pages/InstanceDashboard";
 import AuthCallback from "@/pages/AuthCallback";
+import GlobalSettingsPage from "@/pages/GlobalSettingsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,9 +26,10 @@ const App = () => (
         <Routes>
           <Route path="/" element={<ManagerPage />} />
           <Route path="/callback" element={<AuthCallback />} />
-          
-          <Route 
-            path="/:locationId" 
+          <Route path="/settings/global" element={<GlobalSettingsPage />} />
+
+          <Route
+            path="/:locationId"
             element={
               <LocationProvider>
                 <Dashboard />

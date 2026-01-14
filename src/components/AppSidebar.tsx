@@ -29,7 +29,6 @@ export function AppSidebar() {
   const navigate = useNavigate();
 
   const menuItems = [
-    { title: 'Painel', url: `/${locationId}/dashboard`, icon: LayoutDashboard },
     { title: 'Instâncias', url: `/${locationId}/instances`, icon: Smartphone },
     { title: 'Integração', url: `/${locationId}/ghl`, icon: Zap },
     { title: 'Logs', url: `/${locationId}/logs`, icon: FileText },
@@ -47,7 +46,9 @@ export function AppSidebar() {
                   <MessageSquare className="w-4 h-4 text-white" />
                 </div>
                 <div className="flex flex-col items-start overflow-hidden">
-                  <span className="font-semibold text-xs truncate w-full">Subconta Atual</span>
+                  <span className="font-semibold text-xs truncate w-full">
+                    {subaccounts?.find(s => s.location_id === locationId)?.account_name || 'Subconta Atual'}
+                  </span>
                   <span className="text-[10px] text-muted-foreground truncate w-full">
                     {locationId}
                   </span>
@@ -63,13 +64,16 @@ export function AppSidebar() {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <div className="max-h-[300px] overflow-y-auto">
-              {subaccounts?.map(id => (
-                <DropdownMenuItem 
-                  key={id} 
-                  onClick={() => navigate(`/${id}/instances`)}
-                  className={id === locationId ? "bg-muted font-medium" : ""}
+              {subaccounts?.map(sub => (
+                <DropdownMenuItem
+                  key={sub.location_id}
+                  onClick={() => navigate(`/${sub.location_id}/instances`)}
+                  className={sub.location_id === locationId ? "bg-muted font-medium" : ""}
                 >
-                  {id}
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium">{sub.account_name}</span>
+                    <span className="text-[9px] text-muted-foreground font-mono">{sub.location_id}</span>
+                  </div>
                 </DropdownMenuItem>
               ))}
             </div>
@@ -78,6 +82,26 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Administração</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={() => navigate('/')} className="text-secondary-foreground">
+                  <LayoutGrid className="h-4 w-4 mr-2" />
+                  <span>Painel Geral (Gestor)</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={() => navigate('/settings/global')} className="text-secondary-foreground">
+                  <Settings className="h-4 w-4 mr-2" />
+                  <span>Configurações Globais</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         <SidebarGroup>
           <SidebarGroupLabel>Menu da Subconta</SidebarGroupLabel>
           <SidebarGroupContent>

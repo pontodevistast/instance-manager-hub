@@ -1,0 +1,314 @@
+export type Json =
+    | string
+    | number
+    | boolean
+    | null
+    | { [key: string]: Json | undefined }
+    | Json[]
+
+export type Database = {
+    // Allows to automatically instantiate createClient with right options
+    // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+    __InternalSupabase: {
+        PostgrestVersion: "14.1"
+    }
+    public: {
+        Tables: {
+            ghl_agency_tokens: {
+                Row: {
+                    access_token: string
+                    company_id: string | null
+                    created_at: string | null
+                    expires_at: string | null
+                    id: string
+                    location_id: string | null
+                    refresh_token: string
+                    updated_at: string | null
+                    user_id: string | null
+                }
+                Insert: {
+                    access_token: string
+                    company_id?: string | null
+                    created_at?: string | null
+                    expires_at?: string | null
+                    id?: string
+                    location_id?: string | null
+                    refresh_token: string
+                    updated_at?: string | null
+                    user_id?: string | null
+                }
+                Update: {
+                    access_token?: string
+                    company_id?: string | null
+                    created_at?: string | null
+                    expires_at?: string | null
+                    id?: string
+                    location_id?: string | null
+                    refresh_token?: string
+                    updated_at?: string | null
+                    user_id?: string | null
+                }
+                Relationships: []
+            }
+            ghl_uazapi_config: {
+                Row: {
+                    account_name: string | null
+                    api_base_url: string | null
+                    api_instance_name: string | null
+                    api_token: string | null
+                    created_at: string | null
+                    ghl_token: string | null
+                    id: string
+                    ignore_groups: boolean | null
+                    location_id: string
+                    responder_com_instacia: boolean | null
+                    updated_at: string | null
+                    user_id: string | null
+                }
+                Insert: {
+                    account_name?: string | null
+                    api_base_url?: string | null
+                    api_instance_name?: string | null
+                    api_token?: string | null
+                    created_at?: string | null
+                    ghl_token?: string | null
+                    id?: string
+                    ignore_groups?: boolean | null
+                    location_id: string
+                    responder_com_instacia?: boolean | null
+                    updated_at?: string | null
+                    user_id?: string | null
+                }
+                Update: {
+                    account_name?: string | null
+                    api_base_url?: string | null
+                    api_instance_name?: string | null
+                    api_token?: string | null
+                    created_at?: string | null
+                    ghl_token?: string | null
+                    id?: string
+                    ignore_groups?: boolean | null
+                    location_id?: string
+                    responder_com_instacia?: boolean | null
+                    updated_at?: string | null
+                    user_id?: string | null
+                }
+                Relationships: []
+            }
+            instances: {
+                Row: {
+                    created_at: string | null
+                    id: string
+                    instance_name: string | null
+                    instance_token: string | null
+                    last_heartbeat: string | null
+                    location_id: string | null
+                    qr_code: string | null
+                    status: string | null
+                }
+                Insert: {
+                    created_at?: string | null
+                    id?: string
+                    instance_name?: string | null
+                    instance_token?: string | null
+                    last_heartbeat?: string | null
+                    location_id?: string | null
+                    qr_code?: string | null
+                    status?: string | null
+                }
+                Update: {
+                    created_at?: string | null
+                    id?: string
+                    instance_name?: string | null
+                    instance_token?: string | null
+                    last_heartbeat?: string | null
+                    location_id?: string | null
+                    qr_code?: string | null
+                    status?: string | null
+                }
+                Relationships: []
+            }
+            integration_settings: {
+                Row: {
+                    api_base_url: string
+                    created_at: string | null
+                    ghl_client_id: string | null
+                    ghl_client_secret: string | null
+                    global_api_token: string | null
+                    location_id: string
+                    updated_at: string | null
+                    webhook_url: string | null
+                }
+                Insert: {
+                    api_base_url?: string
+                    created_at?: string | null
+                    ghl_client_id?: string | null
+                    ghl_client_secret?: string | null
+                    global_api_token?: string | null
+                    location_id: string
+                    updated_at?: string | null
+                    webhook_url?: string | null
+                }
+                Update: {
+                    api_base_url?: string
+                    created_at?: string | null
+                    ghl_client_id?: string | null
+                    ghl_client_secret?: string | null
+                    global_api_token?: string | null
+                    location_id?: string
+                    updated_at?: string | null
+                    webhook_url?: string | null
+                }
+                Relationships: []
+            }
+            logs: {
+                Row: {
+                    content: string | null
+                    created_at: string | null
+                    id: string
+                    instance_id: string | null
+                    location_id: string | null
+                    type: string | null
+                }
+                Insert: {
+                    content?: string | null
+                    created_at?: string | null
+                    id?: string
+                    instance_id?: string | null
+                    location_id?: string | null
+                    type?: string | null
+                }
+                Update: {
+                    content?: string | null
+                    created_at?: string | null
+                    id?: string
+                    instance_id?: string | null
+                    location_id?: string | null
+                    type?: string | null
+                }
+                Relationships: []
+            }
+        }
+        Views: {
+            [_ in never]: never
+        }
+        Functions: {
+            [_ in never]: never
+        }
+        Enums: {
+            [_ in never]: never
+        }
+        CompositeTypes: {
+            [_ in never]: never
+        }
+    }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals["public"]
+
+export type Tables<
+    PublicTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+    TableName extends PublicTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+    ? keyof (DatabaseWithoutInternals[PublicTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[PublicTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+    ? (DatabaseWithoutInternals[PublicTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+            Row: infer R
+        }
+    ? R
+    : never
+    : PublicTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[PublicTableNameOrOptions] extends {
+        Row: infer R
+    }
+    ? R
+    : never
+    : never
+
+export type TablesInsert<
+    PublicTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+    TableName extends PublicTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+    ? keyof DatabaseWithoutInternals[PublicTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+    ? DatabaseWithoutInternals[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+        Insert: infer I
+    }
+    ? I
+    : never
+    : PublicTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][PublicTableNameOrOptions] extends {
+        Insert: infer I
+    }
+    ? I
+    : never
+    : never
+
+export type TablesUpdate<
+    PublicTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+    TableName extends PublicTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+    ? keyof DatabaseWithoutInternals[PublicTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+    ? DatabaseWithoutInternals[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+        Update: infer U
+    }
+    ? U
+    : never
+    : PublicTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][PublicTableNameOrOptions] extends {
+        Update: infer U
+    }
+    ? U
+    : never
+    : never
+
+export type Enums<
+    DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+    EnumName extends DefaultSchemaEnumNameOrOptions extends {
+        schema: keyof DatabaseWithoutInternals
+    }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+}
+    ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+    : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+    PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+    CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+        schema: keyof DatabaseWithoutInternals
+    }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+}
+    ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+    : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+    public: {
+        Enums: {},
+    },
+} as const

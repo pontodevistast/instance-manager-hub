@@ -3,6 +3,7 @@ import type { InstanceStatus } from '@/types/instance';
 
 interface StatusBadgeProps {
   status: InstanceStatus;
+  className?: string;
 }
 
 const statusConfig: Record<InstanceStatus, { label: string; className: string; dotClassName: string }> = {
@@ -23,14 +24,15 @@ const statusConfig: Record<InstanceStatus, { label: string; className: string; d
   },
 };
 
-export function StatusBadge({ status }: StatusBadgeProps) {
+export function StatusBadge({ status, className }: StatusBadgeProps) {
   const config = statusConfig[status];
 
   return (
     <span
       className={cn(
         'inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold border tracking-wider',
-        config.className
+        config.className,
+        className
       )}
     >
       <span className="relative flex h-2 w-2">

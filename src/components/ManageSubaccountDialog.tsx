@@ -18,37 +18,29 @@ interface ManageSubaccountDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   locationId: string;
+  currentName: string;
   onSuccess: () => void;
 }
 
-export function ManageSubaccountDialog({ open, onOpenChange, locationId, onSuccess }: ManageSubaccountDialogProps) {
-  const [newLocationId, setNewLocationId] = useState(locationId);
+export function ManageSubaccountDialog({ open, onOpenChange, locationId, currentName, onSuccess }: ManageSubaccountDialogProps) {
+  const [newName, setNewName] = useState(currentName);
   const [isLoading, setIsLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { toast } = useToast();
 
   const handleUpdate = async () => {
-    if (!newLocationId.trim() || newLocationId === locationId) return;
+    if (!newName.trim() || newName === currentName) return;
 
     setIsLoading(true);
     try {
-      // Atualiza em ambas as tabelas (ghl_uazapi_config e instances)
-      const updateConfig = supabase
+      const { error } = await supabase
         .from('ghl_uazapi_config')
-        .update({ location_id: newLocationId })
+        .update({ account_name: newName.trim() })
         .eq('location_id', locationId);
 
-      const updateInstances = supabase
-        .from('instances')
-        .update({ location_id: newLocationId })
-        .eq('location_id', locationId);
+      if (error) throw error;
 
-      const [resConfig, resInstances] = await Promise.all([updateConfig, updateInstances]);
-
-      if (resConfig.error) throw resConfig.error;
-      if (resInstances.error) throw resInstances.error;
-
-      toast({ title: 'Sucesso', description: 'Location ID atualizado com sucesso.' });
+      toast({ title: 'Sucesso', description: 'Nome da conta atualizado com sucesso.' });
       onOpenChange(false);
       onSuccess();
     } catch (error: any) {
@@ -94,21 +86,28 @@ export function ManageSubaccountDialog({ open, onOpenChange, locationId, onSucce
         {!showDeleteConfirm ? (
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="locId">Location ID</Label>
+              <Label>Location ID</Label>
               <Input
-                id="locId"
-                value={newLocationId}
-                onChange={(e) => setNewLocationId(e.target.value)}
+                value={locationId}
+                disabled
+                className="bg-muted font-mono text-xs"
               />
-              <p className="text-[10px] text-muted-foreground">
-                Atenção: Mudar o ID alterará a URL de acesso desta subconta.
-              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="accName">Nome da Conta</Label>
+              <Input
+                id="accName"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Ex: Unidade Centro"
+              />
             </div>
 
             <DialogFooter className="flex flex-row justify-between sm:justify-between items-center gap-2">
-              <Button 
-                type="button" 
-                variant="ghost" 
+              <Button
+                type="button"
+                variant="ghost"
                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
                 onClick={() => setShowDeleteConfirm(true)}
               >
@@ -119,8 +118,8 @@ export function ManageSubaccountDialog({ open, onOpenChange, locationId, onSucce
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={handleUpdate} disabled={isLoading || newLocationId === locationId}>
-                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}
+                <Button onClick={handleUpdate} disabled={isLoading || newName === currentName}>
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar Alterações'}
                 </Button>
               </div>
             </DialogFooter>

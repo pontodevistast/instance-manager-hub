@@ -22,13 +22,13 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [liveStatus, setLiveStatus] = useState<InstanceStatus>(instance.status);
-  
+
   const { toast } = useToast();
   const { data: config } = useSubaccountConfig(instance.location_id);
 
   const checkRealStatus = useCallback(async (silent = false) => {
     if (!config?.api_base_url || !instance.instance_token) return;
-    
+
     if (!silent) setIsSyncing(true);
     try {
       const data = await uazapiFetch(config.api_base_url, '/instance/status', {
@@ -36,7 +36,7 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
       });
 
       const apiStatus = data.instance?.status === 'connected' ? 'connected' : 'disconnected';
-      
+
       if (apiStatus !== liveStatus) {
         setLiveStatus(apiStatus);
         await supabase
@@ -63,7 +63,7 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
 
   const handleLogout = async () => {
     if (!config?.api_base_url || !instance.instance_token) return;
-    
+
     setIsDisconnecting(true);
     try {
       // Tenta logout para limpar a sessão no servidor
@@ -95,28 +95,29 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
 
   return (
     <>
-      <Card className="group flex flex-col overflow-hidden border-slate-200 dark:border-slate-800 transition-all duration-300 hover:shadow-xl bg-white dark:bg-slate-950 min-h-[300px]">
-        <CardHeader className="p-5 pb-4">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary/5 dark:bg-primary/10 rounded-xl flex items-center justify-center border border-primary/10">
+      <Card className="group flex flex-col overflow-hidden border-slate-200 dark:border-slate-800 transition-all duration-300 hover:shadow-xl bg-white dark:bg-slate-950 min-h-[320px] rounded-2xl">
+        <CardHeader className="p-6 pb-2">
+          <div className="flex items-start justify-between gap-2 overflow-hidden">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 bg-primary/5 dark:bg-primary/10 rounded-xl flex items-center justify-center border border-primary/10 shrink-0">
                 <Smartphone className="w-5 h-5 text-primary" />
               </div>
-              <div className="space-y-0.5">
-                <h3 className="font-bold text-slate-900 dark:text-slate-100 leading-none truncate max-w-[140px]">
+              <div className="space-y-1 min-w-0">
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 leading-tight truncate">
                   {instance.instance_name}
                 </h3>
-                <p className="text-[10px] text-muted-foreground font-mono uppercase truncate max-w-[140px]">
-                  ID: {instance.instance_token}
+                <p className="text-[10px] text-muted-foreground font-mono uppercase truncate opacity-70">
+                  {instance.instance_token}
                 </p>
               </div>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <StatusBadge status={liveStatus} />
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              <StatusBadge status={liveStatus} className="whitespace-nowrap shadow-sm" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity rounded-full hover:bg-slate-100"
                 onClick={() => setIsEditOpen(true)}
               >
                 <Settings2 className="h-4 w-4 text-slate-400" />
@@ -135,7 +136,7 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
               <p className="text-[11px] text-muted-foreground mt-1">Sincronizado com API real</p>
             </div>
           ) : liveStatus === 'error' ? (
-             <div className="text-center">
+            <div className="text-center">
               <div className="mx-auto w-12 h-12 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-3 border border-red-200">
                 <AlertCircle className="w-6 h-6 text-red-500" />
               </div>
@@ -154,11 +155,11 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
         </CardContent>
 
         <CardFooter className="p-4 border-t border-slate-50 dark:border-slate-900 bg-slate-50/50 dark:bg-slate-900/30">
-          <div className="flex w-full gap-2">
+          <div className="grid grid-cols-1 w-full gap-2">
             {liveStatus !== 'disconnected' ? (
-              <Button 
-                variant="destructive" 
-                className="w-full h-9 text-xs font-bold"
+              <Button
+                variant="destructive"
+                className="w-full h-10 text-xs font-bold rounded-xl"
                 onClick={handleLogout}
                 disabled={isDisconnecting}
               >
@@ -166,26 +167,26 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
                 ENCERRAR SESSÃO
               </Button>
             ) : (
-              <>
-                <Button 
-                  variant="outline" 
-                  className="flex-1 h-9 text-xs font-bold" 
+              <div className="grid grid-cols-2 gap-2 w-full">
+                <Button
+                  variant="outline"
+                  className="h-10 text-xs font-bold rounded-xl"
                   onClick={() => checkRealStatus()}
                   disabled={isSyncing}
                 >
                   {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />} STATUS
                 </Button>
-                <Button 
-                  className="flex-1 h-9 text-xs font-bold" 
+                <Button
+                  className="h-10 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700"
                   onClick={() => setIsConnectOpen(true)}
                 >
                   <QrCode className="w-3.5 h-3.5 mr-2" /> CONECTAR
                 </Button>
-              </>
+              </div>
             )}
           </div>
         </CardFooter>
-      </Card>
+      </Card >
 
       <ConnectDialog open={isConnectOpen} onOpenChange={setIsConnectOpen} instance={instance} onSuccess={() => { checkRealStatus(true); onRefresh(); }} />
       <EditInstanceDialog open={isEditOpen} onOpenChange={setIsEditOpen} instance={instance} onSuccess={onRefresh} />

@@ -28,7 +28,7 @@ export default function AuthCallback() {
           throw new Error('Configure as credenciais no painel antes de conectar.');
         }
 
-        const response = await fetch('https://onanrpmrgdfjsrtwckxi.supabase.co/functions/v1/ghl-auth', {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ghl-auth`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -52,7 +52,7 @@ export default function AuthCallback() {
 
         setStatus('success');
         toast({ title: 'Conectado!', description: 'Sincronizando contas...' });
-        
+
         setTimeout(() => navigate('/'), 2000);
       } catch (err: any) {
         setStatus('error');

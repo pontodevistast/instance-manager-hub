@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSubaccounts, Subaccount } from '@/hooks/use-subaccounts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,16 +20,32 @@ import { Plus, LayoutGrid, ChevronRight, Search, Loader2, Settings2, Zap, Refres
 
 export default function ManagerPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSubaccount, setSelectedSubaccount] = useState<string | null>(null);
+  const [selectedSubaccount, setSelectedSubaccount] = useState<Subaccount | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSavingToken, setIsSavingToken] = useState(false);
   const [agencyToken, setAgencyToken] = useState('');
-  
+  const [globalSettings, setGlobalSettings] = useState<{ ghl_client_id?: string, ghl_client_secret?: string }>({});
+
   const { data: subaccounts, isLoading, refetch } = useSubaccounts();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    async function fetchGlobalSettings() {
+      const { data } = await supabase
+        .from('integration_settings')
+        .select('ghl_client_id, ghl_client_secret')
+        .eq('location_id', 'agency')
+        .maybeSingle();
+
+      if (data) {
+        setGlobalSettings(data);
+      }
+    }
+    fetchGlobalSettings();
+  }, [isTokenModalOpen]); // Refresh when modal closes as it might have changed
 
   const handleSaveAgencyToken = async () => {
     if (!agencyToken.trim()) return;
@@ -55,14 +71,17 @@ export default function ManagerPage() {
   const handleSyncList = async () => {
     setIsSyncing(true);
     try {
-      const response = await fetch('https://onanrpmrgdfjsrtwckxi.supabase.co/functions/v1/sync-subaccounts', {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-subaccounts`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json'
+        }
       });
-      
+
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Erro ao sincronizar.');
-      
+
       toast({ title: 'Sincronização Concluída', description: data.message });
       refetch();
     } catch (err: any) {
@@ -72,7 +91,35 @@ export default function ManagerPage() {
     }
   };
 
-  const filteredAccounts = subaccounts?.filter(acc => 
+  const handleConnectGHL = () => {
+    const clientId = globalSettings.ghl_client_id;
+    if (!clientId) {
+      toast({
+        title: "Configuração Necessária",
+        description: "Configure o Client ID e Client Secret nas Configurações Globais antes de conectar.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const scopes = [
+      'companies.readonly', 'locations.write', 'locations.readonly',
+      'saas/company.read', 'saas/company.write', 'saas/location.read',
+      'saas/location.write', 'snapshots.readonly', 'snapshots.write',
+      'users.readonly', 'users.write', 'custom-menu-link.readonly',
+      'custom-menu-link.write', 'marketplace-installer-details.readonly',
+      'twilioaccount.read', 'phonenumbers.read', 'numberpools.read',
+      'documents_contracts/list.readonly', 'documents_contracts/sendLink.write',
+      'documents_contracts_template/sendLink.write', 'documents_contracts_template/list.readonly'
+    ].join(' ');
+
+    const redirectUri = window.location.origin + '/callback';
+    const authUrl = `https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scopes}`;
+
+    window.location.href = authUrl;
+  };
+
+  const filteredAccounts = subaccounts?.filter(acc =>
     (acc.account_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
     acc.location_id.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
@@ -109,10 +156,10 @@ export default function ManagerPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={handleSyncList} 
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSyncList}
                     disabled={isSyncing}
                     className="h-10 text-primary hover:text-primary hover:bg-primary/5"
                   >
@@ -121,8 +168,8 @@ export default function ManagerPage() {
                   </Button>
                   <div className="relative w-48 sm:w-72">
                     <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      placeholder="Buscar por nome ou ID..." 
+                    <Input
+                      placeholder="Buscar por nome ou ID..."
                       className="pl-10 h-10 rounded-xl bg-white border-muted"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
@@ -139,8 +186,8 @@ export default function ManagerPage() {
               ) : filteredAccounts.length > 0 ? (
                 <div className="divide-y divide-muted/50">
                   {filteredAccounts.map((acc) => (
-                    <div 
-                      key={acc.location_id} 
+                    <div
+                      key={acc.location_id}
                       className="flex items-center justify-between p-5 hover:bg-primary/[0.02] transition-all group relative cursor-pointer"
                       onClick={() => navigate(`/${acc.location_id}/instances`)}
                     >
@@ -159,15 +206,15 @@ export default function ManagerPage() {
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center gap-3">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-9 w-9 rounded-full opacity-0 group-hover:opacity-100 transition-opacity bg-white border shadow-sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedSubaccount(acc.location_id);
+                            setSelectedSubaccount(acc);
                           }}
                         >
                           <Settings2 className="h-4 w-4 text-muted-foreground" />
@@ -201,39 +248,71 @@ export default function ManagerPage() {
       <Dialog open={isTokenModalOpen} onOpenChange={setIsTokenModalOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Configuração de API Privada</DialogTitle>
+            <DialogTitle>Configuração de API GHL</DialogTitle>
             <DialogDescription>
-              Insira o seu <strong>Agency API Key</strong> para sincronização direta.
+              Escolha entre usar um <strong>Agency API Key</strong> ou conectar via <strong>OAuth (V2)</strong>.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Agency API Key (Bearer Token)</Label>
-              <Input 
-                type="password"
-                value={agencyToken} 
-                onChange={(e) => setAgencyToken(e.target.value)} 
-                placeholder="Cole o token da agência aqui"
-                className="h-12 rounded-xl"
-              />
+          <div className="space-y-6 py-2">
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold border-b pb-2">Opção 1: OAuth V2 (Recomendado)</h3>
+              <div className="bg-muted/30 p-4 rounded-xl border border-dashed text-center space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  As credenciais OAuth agora são gerenciadas centralizadamente nas <strong>Configurações Globais</strong>.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg h-9"
+                  onClick={() => {
+                    setIsTokenModalOpen(false);
+                    navigate('/settings/global');
+                  }}
+                >
+                  <Settings2 className="h-3.5 w-3.5 mr-2" />
+                  Ir para Configurações Globais
+                </Button>
+              </div>
+              <Button
+                className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 font-bold"
+                onClick={handleConnectGHL}
+                disabled={!globalSettings.ghl_client_id}
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                Conectar via OAuth
+              </Button>
             </div>
-            <div className="bg-amber-50 dark:bg-amber-950/20 p-4 rounded-xl text-[11px] text-amber-700 dark:text-amber-400 space-y-2 border border-amber-200/50">
+
+            <div className="space-y-4 pt-2 border-t">
+              <h3 className="text-sm font-bold border-b pb-2">Opção 2: Agency API Key (Antigo)</h3>
+              <div className="space-y-2">
+                <Input
+                  type="password"
+                  value={agencyToken}
+                  onChange={(e) => setAgencyToken(e.target.value)}
+                  placeholder="Cole o Agency API Key aqui"
+                  className="h-10 rounded-lg text-xs"
+                />
+              </div>
+              <Button variant="outline" className="w-full h-11 rounded-xl font-bold" onClick={handleSaveAgencyToken} disabled={isSavingToken || !agencyToken.trim()}>
+                {isSavingToken ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                Salvar Key Agência
+              </Button>
+            </div>
+
+            <div className="bg-amber-50 dark:bg-amber-950/20 p-3 rounded-xl text-[10px] text-amber-700 dark:text-amber-400 space-y-1 border border-amber-200/50">
               <p className="font-bold uppercase flex items-center gap-1">
-                <Zap className="h-3.5 w-3.5" /> Dica:
+                <ShieldCheck className="h-3 w-3" /> Segurança:
               </p>
-              <p>Vá em <strong>Agency Settings {'>'} API Keys</strong> e copie o Agency API Key para ter acesso a todas as subcontas sem expiração.</p>
+              <p>O OAuth é mais seguro e permite permissões granuladas. Os dados de Client ID/Secret são salvos localmente no seu navegador para esta sessão.</p>
             </div>
-            <Button className="w-full h-12 rounded-xl font-bold shadow-lg shadow-primary/20" onClick={handleSaveAgencyToken} disabled={isSavingToken || !agencyToken.trim()}>
-              {isSavingToken ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-              Salvar Token de Agência
-            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      <AddSubaccountDialog 
-        open={isAddOpen} 
-        onOpenChange={setIsAddOpen} 
+      <AddSubaccountDialog
+        open={isAddOpen}
+        onOpenChange={setIsAddOpen}
         onSuccess={(id) => {
           refetch();
           navigate(`/${id}/instances`);
@@ -244,7 +323,8 @@ export default function ManagerPage() {
         <ManageSubaccountDialog
           open={!!selectedSubaccount}
           onOpenChange={(open) => !open && setSelectedSubaccount(null)}
-          locationId={selectedSubaccount}
+          locationId={selectedSubaccount.location_id}
+          currentName={selectedSubaccount.account_name || ''}
           onSuccess={() => {
             setSelectedSubaccount(null);
             refetch();

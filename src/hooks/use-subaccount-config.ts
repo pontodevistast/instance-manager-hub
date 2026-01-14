@@ -6,14 +6,29 @@ export function useSubaccountConfig(locationId: string | null) {
     queryKey: ['subaccount-config', locationId],
     queryFn: async () => {
       if (!locationId) return null;
-      const { data, error } = await supabase
+
+      // 1. Fetch Global Settings
+      const { data: globalData } = await supabase
+        .from('integration_settings')
+        .select('*')
+        .eq('location_id', 'agency')
+        .maybeSingle();
+
+      // 2. Fetch Local Settings
+      const { data: localData, error } = await supabase
         .from('ghl_uazapi_config')
         .select('*')
         .eq('location_id', locationId)
         .maybeSingle();
 
       if (error) throw error;
-      return data;
+
+      // Merge: local values override global values
+      return {
+        ...localData,
+        api_base_url: localData?.api_base_url || globalData?.api_base_url || 'https://kanbro.uazapi.com',
+        api_token: localData?.api_token || globalData?.global_api_token || '',
+      };
     },
     enabled: !!locationId,
   });
