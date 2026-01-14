@@ -45,14 +45,7 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
       if (open && config?.ghl_token && instance.location_id) {
         setIsLoadingUsers(true);
         try {
-          // Fetch agency token for fallback
-          const { data: agencyData } = await supabase
-            .from('ghl_agency_tokens')
-            .select('access_token')
-            .limit(1)
-            .single();
-
-          const users = await listGHLUsers(config.ghl_token, instance.location_id, agencyData?.access_token || undefined);
+          const users = await listGHLUsers(config.ghl_token, instance.location_id);
           console.log('[EditInstanceDialog] Users fetched:', users);
           setGhlUsers(users);
         } catch (err: any) {

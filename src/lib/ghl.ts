@@ -70,43 +70,21 @@ export async function createGHLMenuLink(
     return response.json();
 }
 
-export async function listGHLUsers(token: string, locationId: string, agencyToken?: string) {
+export async function listGHLUsers(token: string, locationId: string) {
     const url = `https://services.leadconnectorhq.com/users/?locationId=${locationId}`;
     const headers = {
         'Authorization': `Bearer ${token}`,
         'Version': '2021-07-28'
     };
 
-    let response = await fetch(url, { method: 'GET', headers });
+    const response = await fetch(url, { method: 'GET', headers });
 
     if (!response.ok) {
-        // If failed and agency token is available, try with it
-        if (agencyToken && agencyToken !== token) {
-            console.log('Retrying with Agency Token...');
-            headers['Authorization'] = `Bearer ${agencyToken}`;
-            response = await fetch(url, { method: 'GET', headers });
-        }
-
-        if (!response.ok) {
-            throw new Error(`Erro ao listar usuários GHL: ${response.statusText}`);
-        }
+        throw new Error(`Erro ao listar usuários GHL: ${response.statusText}`);
     }
 
-    let data = await response.json();
+    const data = await response.json();
     console.log('GHL Users Response:', data);
 
-    let users = Array.isArray(data) ? data : (data.users || []);
-
-    // If empty and we haven't tried agency token yet, try it now
-    if (users.length === 0 && agencyToken && agencyToken !== token) {
-        console.log('Users list empty. Retrying with Agency Token...');
-        headers['Authorization'] = `Bearer ${agencyToken}`;
-        response = await fetch(url, { method: 'GET', headers });
-        if (response.ok) {
-            data = await response.json();
-            users = Array.isArray(data) ? data : (data.users || []);
-        }
-    }
-
-    return users;
+    return Array.isArray(data) ? data : (data.users || []);
 }
