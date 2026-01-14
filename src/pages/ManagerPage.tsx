@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSubaccounts } from '@/hooks/use-subaccounts';
+import { useSubaccounts, Subaccount } from '@/hooks/use-subaccounts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Plus, LayoutGrid, ChevronRight, Search, Loader2, Settings2, Zap, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Plus, LayoutGrid, ChevronRight, Search, Loader2, Settings2, Zap, RefreshCw, ShieldCheck, Building2, Save } from 'lucide-react';
 
 export default function ManagerPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -35,11 +35,10 @@ export default function ManagerPage() {
     if (!agencyToken.trim()) return;
     setIsSavingToken(true);
     try {
-      // Salva o token na tabela de agência como um token permanente (sem expiração)
       const { error } = await supabase.from('ghl_agency_tokens').insert({
         access_token: agencyToken.trim(),
         refresh_token: 'private_key',
-        expires_at: null // Tokens privados não expiram
+        expires_at: null
       });
 
       if (error) throw error;
@@ -62,7 +61,7 @@ export default function ManagerPage() {
       });
       
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Erro ao sincronizar. Verifique se salvou o Token de Agência.');
+      if (!response.ok) throw new Error(data.error || 'Erro ao sincronizar.');
       
       toast({ title: 'Sincronização Concluída', description: data.message });
       refetch();
@@ -73,8 +72,9 @@ export default function ManagerPage() {
     }
   };
 
-  const filteredAccounts = subaccounts?.filter(id => 
-    id.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredAccounts = subaccounts?.filter(acc => 
+    (acc.account_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+    acc.location_id.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
   return (
@@ -83,42 +83,47 @@ export default function ManagerPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Dashboard Gestor</h1>
-            <p className="text-muted-foreground">Integração Privada via API Key de Agência.</p>
+            <p className="text-muted-foreground">Gerenciamento centralizado de unidades.</p>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={() => setIsTokenModalOpen(true)}>
-              <ShieldCheck className="h-4 w-4 mr-2 text-primary" /> Configurar API Key
+            <Button variant="outline" onClick={() => setIsTokenModalOpen(true)} className="rounded-xl border-primary/20 hover:bg-primary/5">
+              <ShieldCheck className="h-4 w-4 mr-2 text-primary" /> API Key Agência
             </Button>
-            <Button onClick={() => setIsAddOpen(true)} className="shadow-lg">
-              <Plus className="h-4 w-4 mr-2" /> Nova Subconta
+            <Button onClick={() => setIsAddOpen(true)} className="rounded-xl shadow-lg shadow-primary/20 px-6">
+              <Plus className="h-4 w-4 mr-2" /> Nova Unidade
             </Button>
           </div>
         </div>
 
         <div className="grid gap-6">
-          <Card>
-            <CardHeader className="pb-3 border-b">
+          <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
+            <CardHeader className="pb-3 border-b bg-muted/20">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
-                  <LayoutGrid className="h-5 w-5 text-primary" />
-                  <CardTitle>Subcontas Ativas</CardTitle>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Building2 className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Unidades & Subcontas</CardTitle>
+                    <p className="text-xs text-muted-foreground">{filteredAccounts.length} resultados encontrados</p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button 
-                    variant="outline" 
+                    variant="ghost" 
                     size="sm" 
                     onClick={handleSyncList} 
                     disabled={isSyncing}
-                    className="h-9"
+                    className="h-10 text-primary hover:text-primary hover:bg-primary/5"
                   >
                     <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
                     Sincronizar CRM
                   </Button>
-                  <div className="relative w-48 sm:w-64">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <div className="relative w-48 sm:w-72">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input 
-                      placeholder="Buscar..." 
-                      className="pl-9 h-9"
+                      placeholder="Buscar por nome ou ID..." 
+                      className="pl-10 h-10 rounded-xl bg-white border-muted"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -128,52 +133,63 @@ export default function ManagerPage() {
             </CardHeader>
             <CardContent className="p-0">
               {isLoading ? (
-                <div className="flex items-center justify-center p-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <div className="flex items-center justify-center p-20">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary/40" />
                 </div>
               ) : filteredAccounts.length > 0 ? (
-                <div className="divide-y">
-                  {filteredAccounts.map((id) => (
+                <div className="divide-y divide-muted/50">
+                  {filteredAccounts.map((acc) => (
                     <div 
-                      key={id} 
-                      className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors group"
+                      key={acc.location_id} 
+                      className="flex items-center justify-between p-5 hover:bg-primary/[0.02] transition-all group relative cursor-pointer"
+                      onClick={() => navigate(`/${acc.location_id}/instances`)}
                     >
-                      <div 
-                        className="flex items-center gap-4 cursor-pointer flex-1"
-                        onClick={() => navigate(`/${id}/instances`)}
-                      >
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center font-bold text-primary">
-                          {id.substring(0, 2).toUpperCase()}
+                      <div className="flex items-center gap-5 flex-1 overflow-hidden">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center font-bold text-primary text-lg shrink-0 border border-primary/5 shadow-sm group-hover:scale-105 transition-transform">
+                          {(acc.account_name || acc.location_id).substring(0, 1).toUpperCase()}
                         </div>
-                        <div>
-                          <p className="font-medium">{id}</p>
-                          <p className="text-xs text-muted-foreground">Acessar painel da unidade</p>
+                        <div className="overflow-hidden space-y-1">
+                          <p className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-primary transition-colors truncate">
+                            {acc.account_name || 'Unidade sem nome'}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono text-muted-foreground/70 bg-muted/50 px-2 py-0.5 rounded border border-muted-foreground/10 uppercase tracking-tighter">
+                              ID: {acc.location_id}
+                            </span>
+                          </div>
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="h-9 w-9 rounded-full opacity-0 group-hover:opacity-100 transition-opacity bg-white border shadow-sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedSubaccount(id);
+                            setSelectedSubaccount(acc.location_id);
                           }}
                         >
                           <Settings2 className="h-4 w-4 text-muted-foreground" />
                         </Button>
-                        <ChevronRight 
-                          className="h-5 w-5 text-muted-foreground cursor-pointer" 
-                          onClick={() => navigate(`/${id}/instances`)}
-                        />
+                        <div className="h-10 w-10 rounded-full flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all text-muted-foreground">
+                          <ChevronRight className="h-6 w-6" />
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="p-12 text-center text-muted-foreground">
-                  Nenhuma subconta encontrada. Configure o API Key e clique em "Sincronizar CRM".
+                <div className="p-20 text-center space-y-4">
+                  <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mx-auto">
+                    <Search className="h-8 w-8 text-muted-foreground/30" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-lg font-medium text-slate-400">Nenhum resultado</p>
+                    <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                      Configure o API Key e sincronize com o CRM para listar suas subcontas automaticamente.
+                    </p>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -181,8 +197,9 @@ export default function ManagerPage() {
         </div>
       </div>
 
+      {/* Modais omitidos por brevidade (mantêm a mesma lógica) */}
       <Dialog open={isTokenModalOpen} onOpenChange={setIsTokenModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle>Configuração de API Privada</DialogTitle>
             <DialogDescription>
@@ -197,17 +214,18 @@ export default function ManagerPage() {
                 value={agencyToken} 
                 onChange={(e) => setAgencyToken(e.target.value)} 
                 placeholder="Cole o token da agência aqui"
+                className="h-12 rounded-xl"
               />
             </div>
-            <div className="bg-amber-50 dark:bg-amber-950/20 p-3 rounded-lg text-[10px] text-amber-700 dark:text-amber-400 space-y-1 border border-amber-200 dark:border-amber-800">
+            <div className="bg-amber-50 dark:bg-amber-950/20 p-4 rounded-xl text-[11px] text-amber-700 dark:text-amber-400 space-y-2 border border-amber-200/50">
               <p className="font-bold uppercase flex items-center gap-1">
-                <Zap className="h-3 w-3" /> Onde encontrar:
+                <Zap className="h-3.5 w-3.5" /> Dica:
               </p>
-              <p>Agency Settings {'>'} API Keys {'>'} Copie o Agency API Key.</p>
+              <p>Vá em <strong>Agency Settings {'>'} API Keys</strong> e copie o Agency API Key para ter acesso a todas as subcontas sem expiração.</p>
             </div>
-            <Button className="w-full" onClick={handleSaveAgencyToken} disabled={isSavingToken || !agencyToken.trim()}>
+            <Button className="w-full h-12 rounded-xl font-bold shadow-lg shadow-primary/20" onClick={handleSaveAgencyToken} disabled={isSavingToken || !agencyToken.trim()}>
               {isSavingToken ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-              Salvar Token Permanente
+              Salvar Token de Agência
             </Button>
           </div>
         </DialogContent>
@@ -236,5 +254,3 @@ export default function ManagerPage() {
     </div>
   );
 }
-
-import { Save } from 'lucide-react';

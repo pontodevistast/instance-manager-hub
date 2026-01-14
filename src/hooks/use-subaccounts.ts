@@ -1,23 +1,26 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+export interface Subaccount {
+  location_id: string;
+  account_name: string | null;
+}
+
 export function useSubaccounts() {
   return useQuery({
     queryKey: ['subaccounts'],
     queryFn: async () => {
-      // Busca location_ids únicos das duas tabelas principais
-      const [instancesRes, ghlRes] = await Promise.all([
-        supabase.from('instances').select('location_id'),
-        supabase.from('ghl_uazapi_config').select('location_id')
-      ]);
+      // Busca dados das subcontas na tabela de configuração (que possui o nome)
+      const { data, error } = await supabase
+        .from('ghl_uazapi_config')
+        .select('location_id, account_name')
+        .order('account_name', { ascending: true });
 
-      const allIds = [
-        ...(instancesRes.data?.map(i => i.location_id) || []),
-        ...(ghlRes.data?.map(g => g.location_id) || [])
-      ];
+      if (error) throw error;
 
-      // Remove duplicados e retorna lista única
-      return Array.from(new Set(allIds));
+      // Se houver instâncias sem config (caso raro), poderíamos buscar, 
+      // mas como agora estamos sincronizando via CRM, a ghl_uazapi_config é a fonte principal.
+      return (data || []) as Subaccount[];
     }
   });
 }
