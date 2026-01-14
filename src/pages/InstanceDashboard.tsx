@@ -191,87 +191,87 @@ export default function InstanceDashboard() {
                         </p>
                       )}
                     </div>
-                  </div>
-                  <div className="shrink-0 pt-0.5">
-                    <StatusBadge status={instance.status} className="whitespace-nowrap shadow-sm" />
+
+                    <div className="shrink-0 pt-0.5">
+                      <StatusBadge status={instance.status} className="whitespace-nowrap shadow-sm" />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="p-8 flex flex-col items-center justify-center min-h-[260px] text-center">
-                {isConnected ? (
-                  <div className="text-center space-y-6 w-full">
-                    <div className="mx-auto w-20 h-20 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center ring-8 ring-green-50 dark:ring-green-900/10">
-                      <CheckCircle2 className="w-10 h-10 text-green-600" />
+                <div className="p-8 flex flex-col items-center justify-center min-h-[260px] text-center">
+                  {isConnected ? (
+                    <div className="text-center space-y-6 w-full">
+                      <div className="mx-auto w-20 h-20 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center ring-8 ring-green-50 dark:ring-green-900/10">
+                        <CheckCircle2 className="w-10 h-10 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="font-black text-green-600 tracking-wider">CONECTADO</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">Dispositivo pareado e ativo</p>
+                      </div>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="w-full rounded-xl font-bold text-[10px] h-9"
+                        disabled={isDisconnecting}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (config?.api_base_url) {
+                            handleLogout(instance, config.api_base_url, () => refetch());
+                          }
+                        }}
+                      >
+                        {isDisconnecting ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Unplug className="w-3 h-3 mr-2" />}
+                        DESCONECTAR WHATSAPP
+                      </Button>
                     </div>
-                    <div>
-                      <p className="font-black text-green-600 tracking-wider">CONECTADO</p>
-                      <p className="text-[10px] text-muted-foreground mt-1">Dispositivo pareado e ativo</p>
+                  ) : (
+                    <div className="text-center space-y-4 w-full flex flex-col items-center">
+                      <div className="mx-auto w-32 h-32 bg-slate-50 dark:bg-slate-900 rounded-lg flex flex-col items-center justify-center border border-dashed border-slate-200">
+                        <QrCode className="w-8 h-8 text-slate-300 mb-2" />
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Clique para ver QR</p>
+                      </div>
+                      <div>
+                        <p className="font-black text-slate-500 tracking-wider uppercase">OFFLINE</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">Clique para gerar QR Code</p>
+                      </div>
                     </div>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="w-full rounded-xl font-bold text-[10px] h-9"
-                      disabled={isDisconnecting}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (config?.api_base_url) {
-                          handleLogout(instance, config.api_base_url, () => refetch());
-                        }
-                      }}
-                    >
-                      {isDisconnecting ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Unplug className="w-3 h-3 mr-2" />}
-                      DESCONECTAR WHATSAPP
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="text-center space-y-4 w-full flex flex-col items-center">
-                    <div className="mx-auto w-32 h-32 bg-slate-50 dark:bg-slate-900 rounded-lg flex flex-col items-center justify-center border border-dashed border-slate-200">
-                      <QrCode className="w-8 h-8 text-slate-300 mb-2" />
-                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Clique para ver QR</p>
-                    </div>
-                    <div>
-                      <p className="font-black text-slate-500 tracking-wider uppercase">OFFLINE</p>
-                      <p className="text-[10px] text-muted-foreground mt-1">Clique para gerar QR Code</p>
-                    </div>
+                  )}
+                </div>
+
+                {!isConnected && (
+                  <div className="px-5 py-3 bg-primary/5 border-t text-center">
+                    <p className="text-[10px] font-bold text-primary flex items-center justify-center gap-1">
+                      <Info className="h-3 w-3" /> TOQUE PARA ABRIR DIÁLOGO
+                    </p>
                   </div>
                 )}
-              </div>
-
-              {!isConnected && (
-                <div className="px-5 py-3 bg-primary/5 border-t text-center">
-                  <p className="text-[10px] font-bold text-primary flex items-center justify-center gap-1">
-                    <Info className="h-3 w-3" /> TOQUE PARA ABRIR DIÁLOGO
-                  </p>
-                </div>
-              )}
-            </CardContent>
+              </CardContent>
             </Card>
-      );
+          );
         })}
 
-      {instances.length === 0 && (
-        <div className="col-span-full py-32 text-center border-4 border-dashed rounded-[2rem] bg-muted/10 opacity-60">
-          <Smartphone className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-          <p className="text-muted-foreground font-medium">Nenhuma instância cadastrada.</p>
-          <p className="text-xs text-muted-foreground/60 mt-1">Contate seu administrador para adicionar conexões.</p>
-        </div>
-      )}
-    </div>
+        {instances.length === 0 && (
+          <div className="col-span-full py-32 text-center border-4 border-dashed rounded-[2rem] bg-muted/10 opacity-60">
+            <Smartphone className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+            <p className="text-muted-foreground font-medium">Nenhuma instância cadastrada.</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Contate seu administrador para adicionar conexões.</p>
+          </div>
+        )}
+      </div>
 
       {
-    selectedInstance && (
-      <ConnectDialog
-        open={!!selectedInstance}
-        onOpenChange={(open) => !open && setSelectedInstance(null)}
-        instance={selectedInstance}
-        onSuccess={() => {
-          setSelectedInstance(null);
-          refetch();
-        }}
-      />
-    )
-  }
+        selectedInstance && (
+          <ConnectDialog
+            open={!!selectedInstance}
+            onOpenChange={(open) => !open && setSelectedInstance(null)}
+            instance={selectedInstance}
+            onSuccess={() => {
+              setSelectedInstance(null);
+              refetch();
+            }}
+          />
+        )
+      }
     </div >
   );
 }
