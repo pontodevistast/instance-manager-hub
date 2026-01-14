@@ -127,7 +127,12 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
       onOpenChange(false);
       onSuccess();
     } catch (error: any) {
-      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+      console.error('[EditInstanceDialog] Update Failed:', error);
+      console.error('[EditInstanceDialog] Config used:', {
+        baseUrl: config?.api_base_url,
+        tokenSuffix: config?.api_token ? config.api_token.slice(-5) : 'NONE'
+      });
+      toast({ title: 'Erro', description: `Falha ao salvar: ${error.message}`, variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
