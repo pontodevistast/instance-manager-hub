@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { ManageSubaccountDialog } from '@/components/ManageSubaccountDialog';
 import { AddSubaccountDialog } from '@/components/AddSubaccountDialog';
 import {
@@ -15,39 +16,41 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Plus, LayoutGrid, ChevronRight, Search, Loader2, Settings2, Zap, RefreshCw } from 'lucide-react';
+import { Plus, LayoutGrid, ChevronRight, Search, Loader2, Settings2, Zap, RefreshCw, ShieldCheck } from 'lucide-react';
 
 export default function ManagerPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubaccount, setSelectedSubaccount] = useState<string | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isGhlModalOpen, setIsGhlModalOpen] = useState(false);
+  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isSavingToken, setIsSavingToken] = useState(false);
+  const [agencyToken, setAgencyToken] = useState('');
+  
   const { data: subaccounts, isLoading, refetch } = useSubaccounts();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const [ghlCreds, setGhlCreds] = useState({
-    clientId: localStorage.getItem('ghl_client_id') || '',
-    clientSecret: localStorage.getItem('ghl_client_secret') || '',
-  });
+  const handleSaveAgencyToken = async () => {
+    if (!agencyToken.trim()) return;
+    setIsSavingToken(true);
+    try {
+      // Salva o token na tabela de agência como um token permanente (sem expiração)
+      const { error } = await supabase.from('ghl_agency_tokens').insert({
+        access_token: agencyToken.trim(),
+        refresh_token: 'private_key',
+        expires_at: null // Tokens privados não expiram
+      });
 
-  const handleGhlConnect = () => {
-    localStorage.setItem('ghl_client_id', ghlCreds.clientId);
-    localStorage.setItem('ghl_client_secret', ghlCreds.clientSecret);
-    
-    const scopes = [
-      'locations.readonly',
-      'locations.write',
-      'messages.readonly',
-      'messages.write',
-      'contacts.readonly'
-    ].join(' ');
-    
-    const redirectUri = window.location.origin + '/callback';
-    const authUrl = `https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=${redirectUri}&client_id=${ghlCreds.clientId}&scope=${scopes}`;
-    
-    window.location.href = authUrl;
+      if (error) throw error;
+
+      toast({ title: 'Token Salvo', description: 'Agora você pode sincronizar suas subcontas.' });
+      setIsTokenModalOpen(false);
+    } catch (err: any) {
+      toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsSavingToken(false);
+    }
   };
 
   const handleSyncList = async () => {
@@ -59,7 +62,7 @@ export default function ManagerPage() {
       });
       
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Erro ao sincronizar');
+      if (!response.ok) throw new Error(data.error || 'Erro ao sincronizar. Verifique se salvou o Token de Agência.');
       
       toast({ title: 'Sincronização Concluída', description: data.message });
       refetch();
@@ -80,11 +83,11 @@ export default function ManagerPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Dashboard Gestor</h1>
-            <p className="text-muted-foreground">Gerencie todas as suas subcontas conectadas.</p>
+            <p className="text-muted-foreground">Integração Privada via API Key de Agência.</p>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={() => setIsGhlModalOpen(true)}>
-              <Zap className="h-4 w-4 mr-2 text-amber-500" /> Sincronizar CRM
+            <Button variant="outline" onClick={() => setIsTokenModalOpen(true)}>
+              <ShieldCheck className="h-4 w-4 mr-2 text-primary" /> Configurar API Key
             </Button>
             <Button onClick={() => setIsAddOpen(true)} className="shadow-lg">
               <Plus className="h-4 w-4 mr-2" /> Nova Subconta
@@ -109,7 +112,7 @@ export default function ManagerPage() {
                     className="h-9"
                   >
                     <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-                    Atualizar Lista
+                    Sincronizar CRM
                   </Button>
                   <div className="relative w-48 sm:w-64">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -144,7 +147,7 @@ export default function ManagerPage() {
                         </div>
                         <div>
                           <p className="font-medium">{id}</p>
-                          <p className="text-xs text-muted-foreground">Clique para acessar o painel</p>
+                          <p className="text-xs text-muted-foreground">Acessar painel da unidade</p>
                         </div>
                       </div>
                       
@@ -170,7 +173,7 @@ export default function ManagerPage() {
                 </div>
               ) : (
                 <div className="p-12 text-center text-muted-foreground">
-                  Nenhuma subconta encontrada. Clique em "Atualizar Lista" para sincronizar.
+                  Nenhuma subconta encontrada. Configure o API Key e clique em "Sincronizar CRM".
                 </div>
               )}
             </CardContent>
@@ -178,39 +181,33 @@ export default function ManagerPage() {
         </div>
       </div>
 
-      <Dialog open={isGhlModalOpen} onOpenChange={setIsGhlModalOpen}>
+      <Dialog open={isTokenModalOpen} onOpenChange={setIsTokenModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Conectar ao CRM</DialogTitle>
+            <DialogTitle>Configuração de API Privada</DialogTitle>
             <DialogDescription>
-              Insira as credenciais do seu aplicativo para sincronizar subcontas.
+              Insira o seu <strong>Agency API Key</strong> para sincronização direta.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Client ID</Label>
-              <Input 
-                value={ghlCreds.clientId} 
-                onChange={(e) => setGhlCreds({...ghlCreds, clientId: e.target.value})} 
-                placeholder="Ex: 65e23..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Client Secret</Label>
+              <Label>Agency API Key (Bearer Token)</Label>
               <Input 
                 type="password"
-                value={ghlCreds.clientSecret} 
-                onChange={(e) => setGhlCreds({...ghlCreds, clientSecret: e.target.value})}
+                value={agencyToken} 
+                onChange={(e) => setAgencyToken(e.target.value)} 
+                placeholder="Cole o token da agência aqui"
               />
             </div>
-            <div className="bg-muted p-3 rounded-lg text-[10px] space-y-1">
-              <p className="font-bold">Redirect URI para configurar no portal:</p>
-              <code className="block bg-background p-1 rounded border overflow-x-auto">
-                {window.location.origin}/callback
-              </code>
+            <div className="bg-amber-50 dark:bg-amber-950/20 p-3 rounded-lg text-[10px] text-amber-700 dark:text-amber-400 space-y-1 border border-amber-200 dark:border-amber-800">
+              <p className="font-bold uppercase flex items-center gap-1">
+                <Zap className="h-3 w-3" /> Onde encontrar:
+              </p>
+              <p>Agency Settings {'>'} API Keys {'>'} Copie o Agency API Key.</p>
             </div>
-            <Button className="w-full" onClick={handleGhlConnect} disabled={!ghlCreds.clientId || !ghlCreds.clientSecret}>
-              Iniciar Autorização OAuth
+            <Button className="w-full" onClick={handleSaveAgencyToken} disabled={isSavingToken || !agencyToken.trim()}>
+              {isSavingToken ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+              Salvar Token Permanente
             </Button>
           </div>
         </DialogContent>
@@ -239,3 +236,5 @@ export default function ManagerPage() {
     </div>
   );
 }
+
+import { Save } from 'lucide-react';
