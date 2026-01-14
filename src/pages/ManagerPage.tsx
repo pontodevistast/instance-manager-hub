@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 import { ManageSubaccountDialog } from '@/components/ManageSubaccountDialog';
 import { AddSubaccountDialog } from '@/components/AddSubaccountDialog';
 import {
@@ -14,14 +15,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Plus, LayoutGrid, ChevronRight, Search, Loader2, Settings2, Zap } from 'lucide-react';
+import { Plus, LayoutGrid, ChevronRight, Search, Loader2, Settings2, Zap, RefreshCw } from 'lucide-react';
 
 export default function ManagerPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubaccount, setSelectedSubaccount] = useState<string | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isGhlModalOpen, setIsGhlModalOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const { data: subaccounts, isLoading, refetch } = useSubaccounts();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   const [ghlCreds, setGhlCreds] = useState({
@@ -45,6 +48,26 @@ export default function ManagerPage() {
     const authUrl = `https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=${redirectUri}&client_id=${ghlCreds.clientId}&scope=${scopes}`;
     
     window.location.href = authUrl;
+  };
+
+  const handleSyncList = async () => {
+    setIsSyncing(true);
+    try {
+      const response = await fetch('https://onanrpmrgdfjsrtwckxi.supabase.co/functions/v1/sync-subaccounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Erro ao sincronizar');
+      
+      toast({ title: 'Sincronização Concluída', description: data.message });
+      refetch();
+    } catch (err: any) {
+      toast({ title: 'Erro na Sincronização', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const filteredAccounts = subaccounts?.filter(id => 
@@ -72,19 +95,31 @@ export default function ManagerPage() {
         <div className="grid gap-6">
           <Card>
             <CardHeader className="pb-3 border-b">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                   <LayoutGrid className="h-5 w-5 text-primary" />
                   <CardTitle>Subcontas Ativas</CardTitle>
                 </div>
-                <div className="relative w-64">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="Buscar subconta..." 
-                    className="pl-9 h-9"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleSyncList} 
+                    disabled={isSyncing}
+                    className="h-9"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                    Atualizar Lista
+                  </Button>
+                  <div className="relative w-48 sm:w-64">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Buscar..." 
+                      className="pl-9 h-9"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -135,7 +170,7 @@ export default function ManagerPage() {
                 </div>
               ) : (
                 <div className="p-12 text-center text-muted-foreground">
-                  Nenhuma subconta encontrada.
+                  Nenhuma subconta encontrada. Clique em "Atualizar Lista" para sincronizar.
                 </div>
               )}
             </CardContent>
