@@ -22,10 +22,9 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [liveStatus, setLiveStatus] = useState<InstanceStatus>(instance.status);
-  const [qrCode, setQrCode] = useState<string | null>(null);
   const { toast } = useToast();
   const { data: config } = useSubaccountConfig(instance.location_id);
-  const { handleLogout, fetchQrCode, isDisconnecting, isFetchingQr } = useInstanceActions(instance.location_id);
+  const { handleLogout, isDisconnecting } = useInstanceActions(instance.location_id);
 
   const checkRealStatus = useCallback(async (silent = false) => {
     if (!config?.api_base_url || !instance.instance_token) return;
@@ -58,23 +57,9 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
     }
   }, [config, instance.instance_token, instance.id, liveStatus, toast]);
 
-  const loadQrCode = useCallback(async () => {
-    if (!config?.api_base_url || liveStatus !== 'disconnected') return;
-    const qr = await fetchQrCode(instance, config.api_base_url);
-    if (qr) setQrCode(qr);
-  }, [config, liveStatus, instance, fetchQrCode]);
-
   useEffect(() => {
     checkRealStatus(true);
   }, []);
-
-  useEffect(() => {
-    if (liveStatus === 'disconnected') {
-      loadQrCode();
-    } else {
-      setQrCode(null);
-    }
-  }, [liveStatus, loadQrCode]);
 
   const onLogout = async () => {
     if (!config?.api_base_url) return;
@@ -136,31 +121,24 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
             </div>
           ) : (
             <div className="text-center w-full flex flex-col items-center">
-              {qrCode ? (
-                <div className="relative group/qr">
-                  <img src={qrCode} alt="QR Code" className="w-32 h-32 object-contain rounded-lg border p-1 bg-white shadow-sm" />
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover/qr:opacity-100 transition-opacity"
-                    onClick={loadQrCode}
-                  >
-                    <RefreshCw className={`h-3 w-3 ${isFetchingQr ? 'animate-spin' : ''}`} />
-                  </Button>
-                </div>
-              ) : (
-                <div className="mx-auto w-12 h-12 bg-slate-50 dark:bg-slate-900 rounded-full flex items-center justify-center mb-3 border border-dashed border-slate-200">
-                  {isFetchingQr ? <Loader2 className="w-6 h-6 animate-spin text-primary/40" /> : <QrCode className="w-6 h-6 text-slate-400" />}
-                </div>
-              )}
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mt-2">
-                {qrCode ? 'ESCANEIE PARA CONECTAR' : 'Desconectado'}
+              <div
+                className="mx-auto w-32 h-32 bg-slate-50 dark:bg-slate-900 rounded-lg flex flex-col items-center justify-center border border-dashed border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors group/placeholder"
+                onClick={() => setIsConnectOpen(true)}
+              >
+                <QrCode className="w-8 h-8 text-slate-300 group-hover/placeholder:text-primary transition-colors mb-2" />
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Clique para Conectar</p>
+              </div>
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mt-3 uppercase tracking-wider font-black">
+                Desconectado
               </p>
-              {!qrCode && !isFetchingQr && (
-                <Button variant="link" className="text-[10px] h-auto p-0 text-muted-foreground mt-1" onClick={loadQrCode}>
-                  Gerar QR Code agora
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4 rounded-xl border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-bold text-[10px] h-9"
+                onClick={() => setIsConnectOpen(true)}
+              >
+                GERAR QR CODE
+              </Button>
             </div>
           )}
         </CardContent>

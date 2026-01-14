@@ -17,12 +17,12 @@ import type { Instance } from '@/types/instance';
 export default function InstanceDashboard() {
   const { locationId } = useLocation();
   const { instances, isLoading, refetch } = useInstances(locationId);
+  const [selectedInstance, setSelectedInstance] = useState<Instance | null>(null);
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const isIframe = searchParams.get('iframe') === 'true';
   const { data: config } = useSubaccountConfig(locationId);
-  const { handleLogout, fetchQrCode, isDisconnecting, isFetchingQr } = useInstanceActions(locationId);
-  const [qrCodes, setQrCodes] = useState<Record<string, string>>({});
+  const { handleLogout, isDisconnecting } = useInstanceActions(locationId);
 
   const handleCopyLink = () => {
     const dashboardUrl = `${window.location.origin}/${locationId}/dashboard?iframe=true`;
@@ -33,23 +33,6 @@ export default function InstanceDashboard() {
     });
   };
 
-  const loadQrCode = useCallback(async (instance: Instance) => {
-    if (!config?.api_base_url) return;
-    const qr = await fetchQrCode(instance, config.api_base_url);
-    if (qr) {
-      setQrCodes(prev => ({ ...prev, [instance.id]: qr }));
-    }
-  }, [config, fetchQrCode]);
-
-  useEffect(() => {
-    if (instances.length > 0) {
-      instances.forEach(instance => {
-        if (instance.status !== 'connected' && !qrCodes[instance.id]) {
-          loadQrCode(instance);
-        }
-      });
-    }
-  }, [instances, loadQrCode, qrCodes]);
 
   if (isLoading) {
     return (
@@ -79,13 +62,13 @@ export default function InstanceDashboard() {
 
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {instances.map((instance) => {
-          const qrCode = qrCodes[instance.id];
           const isConnected = instance.status === 'connected';
 
           return (
             <Card
               key={instance.id}
-              className={`overflow-hidden border-2 transition-all rounded-2xl ${isConnected ? 'border-green-100' : 'border-slate-100 shadow-sm'}`}
+              className={`overflow-hidden border-2 transition-all cursor-pointer hover:shadow-xl rounded-2xl ${isConnected ? 'border-green-100' : 'border-slate-100 shadow-sm'}`}
+              onClick={() => !isConnected && setSelectedInstance(instance)}
             >
               <CardContent className="p-0">
                 <div className={`p-6 border-b ${isConnected ? 'bg-green-50/30' : 'bg-muted/30'}`}>
@@ -137,34 +120,25 @@ export default function InstanceDashboard() {
                     </div>
                   ) : (
                     <div className="text-center space-y-4 w-full flex flex-col items-center">
-                      {qrCode ? (
-                        <div className="relative group/qr">
-                          <img src={qrCode} alt="QR Code" className="w-32 h-32 object-contain rounded-lg border p-1 bg-white shadow-sm" />
-                          <Button
-                            size="icon"
-                            variant="secondary"
-                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover/qr:opacity-100 transition-opacity"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              loadQrCode(instance);
-                            }}
-                          >
-                            <RefreshCw className={`h-3 w-3 ${isFetchingQr ? 'animate-spin' : ''}`} />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="mx-auto w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center border-2 border-dashed border-slate-300 group-hover:border-primary/50 transition-colors">
-                          {isFetchingQr ? <Loader2 className="w-10 h-10 animate-spin text-primary/20" /> : <QrCode className="w-10 h-10 text-slate-400" />}
-                        </div>
-                      )}
+                      <div className="mx-auto w-32 h-32 bg-slate-50 dark:bg-slate-900 rounded-lg flex flex-col items-center justify-center border border-dashed border-slate-200">
+                        <QrCode className="w-8 h-8 text-slate-300 mb-2" />
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Clique para ver QR</p>
+                      </div>
                       <div>
-                        <p className="font-black text-slate-500 tracking-wider uppercase">{qrCode ? 'ESCANEIE O QR' : 'OFFLINE'}</p>
-                        <p className="text-[10px] text-muted-foreground mt-1">{qrCode ? 'Abra seu WhatsApp e escaneie' : 'Clique para gerar QR Code'}</p>
+                        <p className="font-black text-slate-500 tracking-wider uppercase">OFFLINE</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">Clique para gerar QR Code</p>
                       </div>
                     </div>
                   )}
                 </div>
 
+                {!isConnected && (
+                  <div className="px-5 py-3 bg-primary/5 border-t text-center">
+                    <p className="text-[10px] font-bold text-primary flex items-center justify-center gap-1">
+                      <Info className="h-3 w-3" /> TOQUE PARA ABRIR DIÁLOGO
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           );
@@ -179,6 +153,17 @@ export default function InstanceDashboard() {
         )}
       </div>
 
+      {selectedInstance && (
+        <ConnectDialog
+          open={!!selectedInstance}
+          onOpenChange={(open) => !open && setSelectedInstance(null)}
+          instance={selectedInstance}
+          onSuccess={() => {
+            setSelectedInstance(null);
+            refetch();
+          }}
+        />
+      )}
     </div>
   );
 }
