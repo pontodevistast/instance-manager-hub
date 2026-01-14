@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, Info } from 'lucide-react';
+import { useGlobalSettings } from '@/hooks/use-global-settings';
 
 interface AddSubaccountDialogProps {
   open: boolean;
@@ -23,14 +24,17 @@ interface AddSubaccountDialogProps {
 export function AddSubaccountDialog({ open, onOpenChange, onSuccess }: AddSubaccountDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  
+  const { data: globalSettings } = useGlobalSettings();
+
   const [form, setForm] = useState({
     location_id: '',
     account_name: '',
     ghl_token: '',
     api_token: '',
-    api_base_url: 'https://api.uazapi.com',
+    api_base_url: '',
   });
+
+  // No pre-fill needed, using placeholders to show global settings
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +49,7 @@ export function AddSubaccountDialog({ open, onOpenChange, onSuccess }: AddSubacc
           account_name: form.account_name.trim() || null,
           ghl_token: form.ghl_token.trim() || null,
           api_token: form.api_token.trim() || null,
-          api_base_url: form.api_base_url.trim(),
+          api_base_url: form.api_base_url.trim() || null, // Allow null to use global
           ignore_groups: true,
         });
 
@@ -107,24 +111,38 @@ export function AddSubaccountDialog({ open, onOpenChange, onSuccess }: AddSubacc
             </div>
 
             <div className="border-t pt-4 mt-2">
-              <h4 className="text-sm font-bold mb-3 text-primary">Configurações de API (UaZapi)</h4>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-bold text-primary">Configurações de API (UaZapi)</h4>
+                {globalSettings?.global_api_token && (
+                  <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                    <Info className="h-2.5 w-2.5" /> Global Configurado
+                  </span>
+                )}
+              </div>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="apiUrl">API Base URL</Label>
+                  <Label htmlFor="apiUrl" className="flex items-center justify-between">
+                    API Base URL
+                    <span className="text-[10px] text-muted-foreground font-normal">Opcional (Usa Global)</span>
+                  </Label>
                   <Input
                     id="apiUrl"
                     value={form.api_base_url}
                     onChange={(e) => setForm({ ...form, api_base_url: e.target.value })}
+                    placeholder={globalSettings?.api_base_url || "https://api.uazapi.com"}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="apiToken">Global API Token</Label>
+                  <Label htmlFor="apiToken" className="flex items-center justify-between">
+                    Global API Token
+                    <span className="text-[10px] text-muted-foreground font-normal">Opcional (Usa Global)</span>
+                  </Label>
                   <Input
                     id="apiToken"
                     type="password"
                     value={form.api_token}
                     onChange={(e) => setForm({ ...form, api_token: e.target.value })}
-                    placeholder="Token mestre do servidor"
+                    placeholder={globalSettings?.global_api_token ? "••••••••••••" : "Token mestre do servidor"}
                   />
                 </div>
               </div>

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ConnectDialog } from '@/components/ConnectDialog';
 import { EditInstanceDialog } from '@/components/EditInstanceDialog';
-import { Smartphone, Unplug, RefreshCw, CheckCircle2, Settings2, Loader2, QrCode, AlertCircle } from 'lucide-react';
+import { Smartphone, Unplug, RefreshCw, CheckCircle2, Settings2, Loader2, QrCode, AlertCircle, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useSubaccountConfig } from '@/hooks/use-subaccount-config';
@@ -15,9 +15,10 @@ import type { Instance, InstanceStatus } from '@/types/instance';
 interface InstanceCardProps {
   instance: Instance;
   onRefresh: () => void;
+  ghlUsers?: any[];
 }
 
-export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
+export function InstanceCard({ instance, onRefresh, ghlUsers = [] }: InstanceCardProps) {
   const [isConnectOpen, setIsConnectOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -139,6 +140,15 @@ export function InstanceCard({ instance, onRefresh }: InstanceCardProps) {
               >
                 GERAR QR CODE
               </Button>
+            </div>
+          )}
+
+          {instance.ghl_user_id && (
+            <div className="mt-4 flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-900 rounded-full border border-slate-100 dark:border-slate-800 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <User className="h-3 w-3 text-slate-400" />
+              <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400">
+                {ghlUsers.find(u => u.id === instance.ghl_user_id)?.name || 'Usuário Vinculado'}
+              </span>
             </div>
           )}
         </CardContent>

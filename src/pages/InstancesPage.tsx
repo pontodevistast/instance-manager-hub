@@ -9,13 +9,30 @@ import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 import { useSubaccountConfig } from '@/hooks/use-subaccount-config';
+import { listGHLUsers } from '@/lib/ghl';
+import { useEffect } from 'react';
 
 export default function InstancesPage() {
   const { locationId } = useLocation();
   const { instances, isLoading, refetch } = useInstances(locationId);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [ghlUsers, setGhlUsers] = useState<any[]>([]);
   const { toast } = useToast();
   const { data: config } = useSubaccountConfig(locationId);
+
+  useEffect(() => {
+    async function fetchUsers() {
+      if (locationId && config?.ghl_token) {
+        try {
+          const users = await listGHLUsers(config.ghl_token, locationId);
+          setGhlUsers(users);
+        } catch (err) {
+          console.error('Erro ao buscar usuários:', err);
+        }
+      }
+    }
+    fetchUsers();
+  }, [locationId, config?.ghl_token]);
 
   const handleCopyLink = () => {
     const dashboardUrl = `${window.location.origin}/${locationId}/dashboard?iframe=true`;
@@ -75,7 +92,12 @@ export default function InstancesPage() {
           </>
         ) : (
           instances.map((instance) => (
-            <InstanceCard key={instance.id} instance={instance} onRefresh={refetch} />
+            <InstanceCard
+              key={instance.id}
+              instance={instance}
+              onRefresh={refetch}
+              ghlUsers={ghlUsers}
+            />
           ))
         )}
       </div>

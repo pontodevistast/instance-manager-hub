@@ -9,6 +9,7 @@ export interface Instance {
   status: InstanceStatus;
   qr_code: string | null;
   last_heartbeat: string | null;
+  ghl_user_id: string | null;
 }
 
 export interface CallLog {

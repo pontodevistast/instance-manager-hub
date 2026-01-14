@@ -17,10 +17,12 @@ export default function GHLIntegrationPage() {
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
+  const [globalData, setGlobalData] = useState<any>(null);
+  const [isAgencyConnected, setIsAgencyConnected] = useState(false);
   const [config, setConfig] = useState({
     ghl_token: '',
     account_name: '',
-    api_base_url: 'https://kanbro.uazapi.com',
+    api_base_url: '',
     api_token: '',
     ignore_groups: true,
   });
@@ -32,11 +34,20 @@ export default function GHLIntegrationPage() {
       if (!locationId) return;
       try {
         // 1. Fetch Global Settings
-        const { data: globalData } = await supabase
+        const { data: gData } = await supabase
           .from('integration_settings')
           .select('*')
           .eq('location_id', 'agency')
           .maybeSingle();
+
+        setGlobalData(gData);
+
+        // 1.5. Check Agency Connection
+        const { count } = await supabase
+          .from('ghl_agency_tokens')
+          .select('*', { count: 'exact', head: true });
+
+        setIsAgencyConnected((count || 0) > 0);
 
         // 2. Fetch Location Settings
         const { data: localData } = await supabase
@@ -47,23 +58,17 @@ export default function GHLIntegrationPage() {
 
         if (localData) {
           setConfig({
-            ghl_token: localData.ghl_token || import.meta.env.VITE_GHL_TOKEN || '',
+            ghl_token: localData.ghl_token || '',
             account_name: localData.account_name || '',
-            api_base_url: localData.api_base_url || import.meta.env.VITE_UAZAPI_BASE_URL || globalData?.api_base_url || 'https://kanbro.uazapi.com',
-            api_token: localData.api_token || import.meta.env.VITE_UAZAPI_ADMIN_TOKEN || globalData?.global_api_token || '',
+            api_base_url: localData.api_base_url || '',
+            api_token: localData.api_token || '',
             ignore_groups: localData.ignore_groups ?? true,
           });
-        } else if (globalData || import.meta.env.VITE_UAZAPI_BASE_URL) {
-          setConfig(prev => ({
-            ...prev,
-            api_base_url: import.meta.env.VITE_UAZAPI_BASE_URL || globalData?.api_base_url || prev.api_base_url,
-            api_token: import.meta.env.VITE_UAZAPI_ADMIN_TOKEN || globalData?.global_api_token || '',
-          }));
         }
 
         // Fetch Webhook Global if available
-        const effectiveUrl = localData?.api_base_url || import.meta.env.VITE_UAZAPI_BASE_URL || globalData?.api_base_url;
-        const effectiveToken = localData?.api_token || import.meta.env.VITE_UAZAPI_ADMIN_TOKEN || globalData?.global_api_token;
+        const effectiveUrl = localData?.api_base_url || import.meta.env.VITE_UAZAPI_BASE_URL || gData?.api_base_url;
+        const effectiveToken = localData?.api_token || import.meta.env.VITE_UAZAPI_ADMIN_TOKEN || gData?.global_api_token;
 
         if (effectiveUrl && effectiveToken) {
           try {
@@ -88,15 +93,15 @@ export default function GHLIntegrationPage() {
     if (!locationId) return;
     setIsSaving(true);
     try {
-      // 1. Salvar no Supabase
+      // 1. Salvar no Supabase - we save exactly what's in state (empty means inherit)
       const { error } = await supabase
         .from('ghl_uazapi_config')
         .upsert({
           location_id: locationId,
           ghl_token: config.ghl_token,
           account_name: config.account_name,
-          api_base_url: config.api_base_url,
-          api_token: config.api_token,
+          api_base_url: config.api_base_url || null, // Ensure empty saves as null
+          api_token: config.api_token || null, // Ensure empty saves as null
           ignore_groups: config.ignore_groups,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'location_id' });
@@ -104,10 +109,13 @@ export default function GHLIntegrationPage() {
       if (error) throw error;
 
       // 2. Salvar Webhook Global via API UaZapi
-      if (config.api_base_url && config.api_token && webhookUrl) {
-        await uazapiFetch(config.api_base_url, '/globalwebhook', {
+      const effectiveUrl = config.api_base_url || globalData?.api_base_url || import.meta.env.VITE_UAZAPI_BASE_URL;
+      const effectiveToken = config.api_token || globalData?.global_api_token || import.meta.env.VITE_UAZAPI_ADMIN_TOKEN;
+
+      if (effectiveUrl && effectiveToken && webhookUrl) {
+        await uazapiFetch(effectiveUrl, '/globalwebhook', {
           method: 'POST',
-          adminToken: config.api_token,
+          adminToken: effectiveToken,
           body: {
             url: webhookUrl,
             events: ["messages", "connection"],
@@ -130,7 +138,18 @@ export default function GHLIntegrationPage() {
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Integração & Servidor</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight">Integração & Servidor</h1>
+            {isAgencyConnected ? (
+              <span className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold border border-green-200 flex items-center gap-1">
+                <Shield className="h-3 w-3" /> AGÊNCIA CONECTADA
+              </span>
+            ) : (
+              <span className="bg-amber-100 text-amber-700 text-[10px] px-2 py-0.5 rounded-full font-bold border border-amber-200">
+                AGÊNCIA DESCONECTADA
+              </span>
+            )}
+          </div>
           <p className="text-muted-foreground">Configure os dados do GHL e as definições globais do UaZapi.</p>
         </div>
         <Button onClick={handleSaveAll} disabled={isSaving}>
@@ -166,7 +185,7 @@ export default function GHLIntegrationPage() {
               <CardHeader>
                 <CardTitle className="text-lg">API UaZapi (Servidor)</CardTitle>
                 <CardDescription className="text-[10px] text-blue-600 dark:text-blue-400 font-medium italic">
-                  * Estes campos são preenchidos automaticamente pelas Configurações Globais se vazios.
+                  * Deixe vazio para usar os padrões configurados na Agência.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -175,7 +194,7 @@ export default function GHLIntegrationPage() {
                   <Input
                     value={config.api_base_url}
                     onChange={(e) => setConfig({ ...config, api_base_url: e.target.value })}
-                    placeholder="Herdado do Global"
+                    placeholder={globalData?.api_base_url || import.meta.env.VITE_UAZAPI_BASE_URL || "Especifique a URL"}
                   />
                 </div>
                 <div className="space-y-2">
@@ -184,7 +203,7 @@ export default function GHLIntegrationPage() {
                     type="password"
                     value={config.api_token}
                     onChange={(e) => setConfig({ ...config, api_token: e.target.value })}
-                    placeholder="Preencha apenas se quiser sobrescrever o Global"
+                    placeholder={globalData?.global_api_token || import.meta.env.VITE_UAZAPI_ADMIN_TOKEN ? "•••••••••••• (Herdado)" : "Token mestre"}
                   />
                 </div>
               </CardContent>

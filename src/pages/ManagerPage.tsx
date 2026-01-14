@@ -22,10 +22,7 @@ export default function ManagerPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubaccount, setSelectedSubaccount] = useState<Subaccount | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isSavingToken, setIsSavingToken] = useState(false);
-  const [agencyToken, setAgencyToken] = useState('');
   const [globalSettings, setGlobalSettings] = useState<{ ghl_client_id?: string, ghl_client_secret?: string }>({});
 
   const { data: subaccounts, isLoading, refetch } = useSubaccounts();
@@ -45,29 +42,7 @@ export default function ManagerPage() {
       }
     }
     fetchGlobalSettings();
-  }, [isTokenModalOpen]); // Refresh when modal closes as it might have changed
-
-  const handleSaveAgencyToken = async () => {
-    if (!agencyToken.trim()) return;
-    setIsSavingToken(true);
-    try {
-      const { error } = await supabase.from('ghl_agency_tokens').insert({
-        access_token: agencyToken.trim(),
-        refresh_token: 'private_key',
-        expires_at: null
-      });
-
-      if (error) throw error;
-
-      toast({ title: 'Token Salvo', description: 'Agora você pode sincronizar suas subcontas.' });
-      setIsTokenModalOpen(false);
-    } catch (err: any) {
-      toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' });
-    } finally {
-      setIsSavingToken(false);
-    }
-  };
-
+  }, []);
   const handleSyncList = async () => {
     setIsSyncing(true);
     try {
@@ -133,9 +108,6 @@ export default function ManagerPage() {
             <p className="text-muted-foreground">Gerenciamento centralizado de unidades.</p>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={() => setIsTokenModalOpen(true)} className="rounded-xl border-primary/20 hover:bg-primary/5">
-              <ShieldCheck className="h-4 w-4 mr-2 text-primary" /> API Key Agência
-            </Button>
             <Button onClick={() => setIsAddOpen(true)} className="rounded-xl shadow-lg shadow-primary/20 px-6">
               <Plus className="h-4 w-4 mr-2" /> Nova Unidade
             </Button>
@@ -245,71 +217,6 @@ export default function ManagerPage() {
       </div>
 
       {/* Modais omitidos por brevidade (mantêm a mesma lógica) */}
-      <Dialog open={isTokenModalOpen} onOpenChange={setIsTokenModalOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Configuração de API GHL</DialogTitle>
-            <DialogDescription>
-              Escolha entre usar um <strong>Agency API Key</strong> ou conectar via <strong>OAuth (V2)</strong>.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-6 py-2">
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold border-b pb-2">Opção 1: OAuth V2 (Recomendado)</h3>
-              <div className="bg-muted/30 p-4 rounded-xl border border-dashed text-center space-y-3">
-                <p className="text-xs text-muted-foreground">
-                  As credenciais OAuth agora são gerenciadas centralizadamente nas <strong>Configurações Globais</strong>.
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-lg h-9"
-                  onClick={() => {
-                    setIsTokenModalOpen(false);
-                    navigate('/settings/global');
-                  }}
-                >
-                  <Settings2 className="h-3.5 w-3.5 mr-2" />
-                  Ir para Configurações Globais
-                </Button>
-              </div>
-              <Button
-                className="w-full h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 font-bold"
-                onClick={handleConnectGHL}
-                disabled={!globalSettings.ghl_client_id}
-              >
-                <Zap className="h-4 w-4 mr-2" />
-                Conectar via OAuth
-              </Button>
-            </div>
-
-            <div className="space-y-4 pt-2 border-t">
-              <h3 className="text-sm font-bold border-b pb-2">Opção 2: Agency API Key (Antigo)</h3>
-              <div className="space-y-2">
-                <Input
-                  type="password"
-                  value={agencyToken}
-                  onChange={(e) => setAgencyToken(e.target.value)}
-                  placeholder="Cole o Agency API Key aqui"
-                  className="h-10 rounded-lg text-xs"
-                />
-              </div>
-              <Button variant="outline" className="w-full h-11 rounded-xl font-bold" onClick={handleSaveAgencyToken} disabled={isSavingToken || !agencyToken.trim()}>
-                {isSavingToken ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                Salvar Key Agência
-              </Button>
-            </div>
-
-            <div className="bg-amber-50 dark:bg-amber-950/20 p-3 rounded-xl text-[10px] text-amber-700 dark:text-amber-400 space-y-1 border border-amber-200/50">
-              <p className="font-bold uppercase flex items-center gap-1">
-                <ShieldCheck className="h-3 w-3" /> Segurança:
-              </p>
-              <p>O OAuth é mais seguro e permite permissões granuladas. Os dados de Client ID/Secret são salvos localmente no seu navegador para esta sessão.</p>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       <AddSubaccountDialog
         open={isAddOpen}
         onOpenChange={setIsAddOpen}

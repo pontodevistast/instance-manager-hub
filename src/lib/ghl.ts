@@ -69,3 +69,29 @@ export async function createGHLMenuLink(
 
     return response.json();
 }
+
+export async function listGHLUsers(token: string, locationId: string) {
+    const url = `https://services.leadconnectorhq.com/users/?locationId=${locationId}`;
+
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Version': '2021-07-28'
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error(`Erro ao listar usuários GHL: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('GHL Users Response:', data);
+
+    // API v2 can return an array directly or an object with a 'users' property
+    if (Array.isArray(data)) {
+        return data;
+    }
+
+    return data.users || [];
+}

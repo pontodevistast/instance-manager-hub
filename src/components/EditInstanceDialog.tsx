@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -10,12 +10,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useSubaccountConfig } from '@/hooks/use-subaccount-config';
 import { uazapiFetch } from '@/lib/uazapi';
-import { Loader2, Trash2, AlertTriangle, Save, Link2Off, Unplug, Smartphone } from 'lucide-react';
+import { Loader2, Trash2, AlertTriangle, Save, Link2Off, Unplug, Smartphone, User } from 'lucide-react';
+import { listGHLUsers } from '@/lib/ghl';
 import type { Instance } from '@/types/instance';
+import { cn } from '@/lib/utils';
 
 interface EditInstanceDialogProps {
   open: boolean;
@@ -27,13 +30,45 @@ interface EditInstanceDialogProps {
 export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: EditInstanceDialogProps) {
   const [name, setName] = useState(instance.instance_name || '');
   const [adminField01, setAdminField01] = useState(instance.location_id || '');
-  const [adminField02, setAdminField02] = useState('');
+  const [ghlUserId, setGhlUserId] = useState(instance.ghl_user_id || 'none');
+  const [ghlUsers, setGhlUsers] = useState<any[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [confirmType, setConfirmType] = useState<'none' | 'unlink' | 'delete'>('none');
-  
+
   const { toast } = useToast();
   const { data: config } = useSubaccountConfig(instance.location_id);
+
+  useEffect(() => {
+    async function fetchUsers() {
+      if (open && config?.ghl_token && instance.location_id) {
+        setIsLoadingUsers(true);
+        try {
+          const users = await listGHLUsers(config.ghl_token, instance.location_id);
+          setGhlUsers(users);
+        } catch (err: any) {
+          console.error('Erro ao carregar usuários:', err);
+          toast({
+            title: 'Erro ao carregar usuários GHL',
+            description: err.message,
+            variant: 'destructive'
+          });
+        } finally {
+          setIsLoadingUsers(false);
+        }
+      }
+    }
+    fetchUsers();
+  }, [open, config?.ghl_token, instance.location_id]);
+
+  useEffect(() => {
+    if (open) {
+      setName(instance.instance_name || '');
+      setAdminField01(instance.location_id || '');
+      setGhlUserId(instance.ghl_user_id || 'none');
+    }
+  }, [open, instance]);
 
   const handleUpdate = async () => {
     if (!name.trim() || !config?.api_base_url) return;
@@ -42,8 +77,11 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
       if (name !== instance.instance_name) {
         await uazapiFetch(config.api_base_url, '/instance/updateInstanceName', {
           method: 'POST',
-          instanceToken: instance.instance_token || undefined,
-          body: { name: name.trim() }
+          adminToken: config.api_token || undefined,
+          body: {
+            id: instance.instance_token,
+            name: name.trim()
+          }
         });
       }
       await uazapiFetch(config.api_base_url, '/instance/updateAdminFields', {
@@ -52,10 +90,17 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
         body: {
           id: instance.instance_token,
           adminField01: adminField01.trim(),
-          adminField02: adminField02.trim()
+          adminField02: ghlUserId === 'none' ? '' : ghlUserId
         }
       });
-      const { error } = await supabase.from('instances').update({ instance_name: name }).eq('id', instance.id);
+      const { error } = await supabase
+        .from('instances')
+        .update({
+          instance_name: name,
+          ghl_user_id: ghlUserId === 'none' ? null : ghlUserId
+        })
+        .eq('id', instance.id);
+
       if (error) throw error;
       toast({ title: 'Sucesso', description: 'Instância atualizada.' });
       onOpenChange(false);
@@ -108,7 +153,7 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
       const { error } = await supabase.from('instances').delete().eq('id', instance.id);
       if (error) throw error;
 
-      toast({ 
+      toast({
         title: permanent ? 'Excluída permanentemente' : 'Desvinculada do painel',
         description: permanent ? 'A instância foi removida do servidor e do painel.' : 'A instância saiu deste painel, mas continua no servidor.'
       });
@@ -136,15 +181,40 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
               <Label>Nome</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </div>
-            
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <User className="h-3 w-3" /> Usuário GHL Atrelado
+              </Label>
+              <Select value={ghlUserId} onValueChange={setGhlUserId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecione um usuário" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum usuário</SelectItem>
+                  {isLoadingUsers ? (
+                    <div className="flex items-center justify-center py-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin mr-2" /> Carregando...
+                    </div>
+                  ) : (
+                    ghlUsers.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name} ({user.email})
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="bg-muted/30 p-3 rounded-lg border space-y-3">
               <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-2">
                 <Unplug className="h-3 w-3" /> Sessão WhatsApp
               </p>
-              <Button 
-                type="button" 
-                variant="secondary" 
-                className="w-full h-8 text-[11px] font-bold bg-white dark:bg-slate-900" 
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full h-8 text-[11px] font-bold bg-white dark:bg-slate-900"
                 onClick={handleWhatsAppLogout}
                 disabled={isLoggingOut}
               >
@@ -158,18 +228,18 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
 
             <div className="border-t pt-4 space-y-2">
               <div className="flex gap-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  className="flex-1 text-[11px] h-9" 
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 text-[11px] h-9"
                   onClick={() => setConfirmType('unlink')}
                 >
                   Desvincular Painel
                 </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  className="flex-1 text-[11px] h-9 text-destructive hover:bg-destructive/10" 
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 text-[11px] h-9 text-destructive hover:bg-destructive/10"
                   onClick={() => setConfirmType('delete')}
                 >
                   Excluir do Servidor
@@ -192,19 +262,19 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
                   {confirmType === 'delete' ? 'EXCLUSÃO DEFINITIVA' : 'DESVINCULAR DO PAINEL'}
                 </p>
                 <p className="mt-1 opacity-90 leading-relaxed">
-                  {confirmType === 'delete' 
-                    ? 'Esta ação apagará a instância permanentemente do servidor e do painel.' 
+                  {confirmType === 'delete'
+                    ? 'Esta ação apagará a instância permanentemente do servidor e do painel.'
                     : 'A instância será removida deste painel, mas continuará existindo no servidor.'}
                 </p>
               </div>
             </div>
-            
+
             <DialogFooter className="gap-2 sm:gap-0">
               <Button variant="outline" onClick={() => setConfirmType('none')} disabled={isLoading} className="flex-1">
                 Cancelar
               </Button>
-              <Button 
-                variant={confirmType === 'delete' ? 'destructive' : 'default'} 
+              <Button
+                variant={confirmType === 'delete' ? 'destructive' : 'default'}
                 onClick={() => processRemoval(confirmType === 'delete')}
                 disabled={isLoading}
                 className="flex-1"
@@ -219,5 +289,3 @@ export function EditInstanceDialog({ open, onOpenChange, instance, onSuccess }: 
     </Dialog>
   );
 }
-
-import { cn } from '@/lib/utils';

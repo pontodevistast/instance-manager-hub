@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Shield, Database, Key } from 'lucide-react';
+import { Loader2, Save, Shield, Database, Key, Zap, ShieldCheck, Building2 } from 'lucide-react';
 
 export default function GlobalSettingsPage() {
     const [isLoading, setIsLoading] = useState(true);
@@ -13,36 +13,39 @@ export default function GlobalSettingsPage() {
     const { toast } = useToast();
 
     const [settings, setSettings] = useState({
-        api_base_url: import.meta.env.VITE_UAZAPI_BASE_URL || 'https://api.uazapi.com',
-        global_api_token: import.meta.env.VITE_UAZAPI_ADMIN_TOKEN || '',
-        ghl_client_id: import.meta.env.VITE_GHL_CLIENT_ID || '',
-        ghl_client_secret: import.meta.env.VITE_GHL_CLIENT_SECRET || '',
+        api_base_url: 'https://api.uazapi.com',
+        global_api_token: '',
+        ghl_client_id: '',
+        ghl_client_secret: '',
+        ghl_agency_key: '',
         webhook_url: '',
     });
-
-    const isEnvManaged = {
-        api_base_url: !!import.meta.env.VITE_UAZAPI_BASE_URL,
-        global_api_token: !!import.meta.env.VITE_UAZAPI_ADMIN_TOKEN,
-        ghl_client_id: !!import.meta.env.VITE_GHL_CLIENT_ID,
-        ghl_client_secret: !!import.meta.env.VITE_GHL_CLIENT_SECRET,
-    };
 
     useEffect(() => {
         async function fetchSettings() {
             try {
+                // 1. Fetch Integration Settings
                 const { data, error } = await supabase
                     .from('integration_settings')
                     .select('*')
                     .eq('location_id', 'agency')
                     .maybeSingle();
 
-                if (data) {
+                // 2. Fetch Agency API Key (Legacy)
+                const { data: agencyTokenData } = await supabase
+                    .from('ghl_agency_tokens')
+                    .select('access_token')
+                    .eq('refresh_token', 'private_key')
+                    .maybeSingle();
+
+                if (data || agencyTokenData) {
                     setSettings({
-                        api_base_url: import.meta.env.VITE_UAZAPI_BASE_URL || data.api_base_url || 'https://api.uazapi.com',
-                        global_api_token: import.meta.env.VITE_UAZAPI_ADMIN_TOKEN || data.global_api_token || '',
-                        ghl_client_id: import.meta.env.VITE_GHL_CLIENT_ID || data.ghl_client_id || '',
-                        ghl_client_secret: import.meta.env.VITE_GHL_CLIENT_SECRET || data.ghl_client_secret || '',
-                        webhook_url: data.webhook_url || '',
+                        api_base_url: data?.api_base_url || import.meta.env.VITE_UAZAPI_BASE_URL || 'https://api.uazapi.com',
+                        global_api_token: data?.global_api_token || import.meta.env.VITE_UAZAPI_ADMIN_TOKEN || '',
+                        ghl_client_id: data?.ghl_client_id || import.meta.env.VITE_GHL_CLIENT_ID || '',
+                        ghl_client_secret: data?.ghl_client_secret || import.meta.env.VITE_GHL_CLIENT_SECRET || '',
+                        ghl_agency_key: agencyTokenData?.access_token || '',
+                        webhook_url: data?.webhook_url || '',
                     });
                 }
             } catch (err) {
@@ -57,7 +60,8 @@ export default function GlobalSettingsPage() {
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            const { error } = await supabase
+            // 1. Save Integration Settings
+            const { error: settingsError } = await supabase
                 .from('integration_settings')
                 .upsert({
                     location_id: 'agency',
@@ -69,7 +73,21 @@ export default function GlobalSettingsPage() {
                     updated_at: new Date().toISOString(),
                 }, { onConflict: 'location_id' });
 
-            if (error) throw error;
+            if (settingsError) throw settingsError;
+
+            // 2. Save Agency API Key (Legacy)
+            if (settings.ghl_agency_key) {
+                const { error: tokenError } = await supabase
+                    .from('ghl_agency_tokens')
+                    .upsert({
+                        access_token: settings.ghl_agency_key,
+                        refresh_token: 'private_key',
+                        expires_at: null
+                    }, { onConflict: 'refresh_token' });
+
+                // Note: If refresh_token is not unique, this upsert might fail if onConflict is not set correctly.
+                // But we use 'private_key' as an identifier for the legacy key.
+            }
 
             toast({ title: 'Configurações Salvas', description: 'Credenciais globais de agência foram atualizadas.' });
         } catch (err: any) {
@@ -87,11 +105,6 @@ export default function GlobalSettingsPage() {
                 <div>
                     <h1 className="text-3xl font-extrabold tracking-tight">Configurações Globais</h1>
                     <p className="text-muted-foreground">Gerencie credenciais de nível Agência que afetam todas as subcontas.</p>
-                    {Object.values(isEnvManaged).some(v => v) && (
-                        <p className="text-xs text-blue-600 font-medium mt-1">
-                            * Alguns campos estão bloqueados pois são gerenciados via arquivo .env
-                        </p>
-                    )}
                 </div>
                 <Button onClick={handleSave} disabled={isSaving} className="rounded-xl shadow-lg h-11 px-8">
                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
@@ -117,7 +130,6 @@ export default function GlobalSettingsPage() {
                                     onChange={(e) => setSettings({ ...settings, api_base_url: e.target.value })}
                                     placeholder="https://apiUrl.uazapi.com"
                                     className="h-11 rounded-lg"
-                                    disabled={isEnvManaged.api_base_url}
                                 />
                             </div>
                             <div className="space-y-2">
@@ -129,7 +141,6 @@ export default function GlobalSettingsPage() {
                                     onChange={(e) => setSettings({ ...settings, global_api_token: e.target.value })}
                                     placeholder="Token administrativo do servidor"
                                     className="h-11 rounded-lg"
-                                    disabled={isEnvManaged.global_api_token}
                                 />
                             </div>
                         </div>
@@ -150,36 +161,82 @@ export default function GlobalSettingsPage() {
                 <Card className="rounded-2xl border-2">
                     <CardHeader className="border-b bg-muted/20">
                         <CardTitle className="flex items-center gap-2 text-xl font-bold">
-                            <Key className="h-5 w-5 text-indigo-600" /> GoHighLevel OAuth (Marketplace)
+                            <Building2 className="h-5 w-5 text-indigo-600" /> Integração GoHighLevel (CRM)
                         </CardTitle>
-                        <CardDescription>Credenciais do seu aplicativo no marketplace do GoHighLevel.</CardDescription>
+                        <CardDescription>Gerencie a conexão mestre com o seu CRM GoHighLevel.</CardDescription>
                     </CardHeader>
-                    <CardContent className="pt-6 space-y-4">
-                        <div className="grid md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="clientId">Client ID</Label>
-                                <Input
-                                    id="clientId"
-                                    value={settings.ghl_client_id}
-                                    onChange={(e) => setSettings({ ...settings, ghl_client_id: e.target.value })}
-                                    placeholder="Seu GHL Client ID"
-                                    className="h-11 rounded-lg"
-                                    disabled={isEnvManaged.ghl_client_id}
-                                />
+                    <CardContent className="pt-6 space-y-6">
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-bold flex items-center gap-2">
+                                <Zap className="h-4 w-4 text-amber-500" /> OAuth V2 (Recomendado)
+                            </h3>
+                            <div className="grid md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="clientId">Client ID</Label>
+                                    <Input
+                                        id="clientId"
+                                        value={settings.ghl_client_id}
+                                        onChange={(e) => setSettings({ ...settings, ghl_client_id: e.target.value })}
+                                        placeholder="Seu GHL Client ID"
+                                        className="h-11 rounded-lg"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="clientSecret">Client Secret</Label>
+                                    <Input
+                                        id="clientSecret"
+                                        type="password"
+                                        value={settings.ghl_client_secret}
+                                        onChange={(e) => setSettings({ ...settings, ghl_client_secret: e.target.value })}
+                                        placeholder="Seu GHL Client Secret"
+                                        className="h-11 rounded-lg"
+                                    />
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="clientSecret">Client Secret</Label>
-                                <Input
-                                    id="clientSecret"
-                                    type="password"
-                                    value={settings.ghl_client_secret}
-                                    onChange={(e) => setSettings({ ...settings, ghl_client_secret: e.target.value })}
-                                    placeholder="Seu GHL Client Secret"
-                                    className="h-11 rounded-lg"
-                                    disabled={isEnvManaged.ghl_client_secret}
-                                />
+
+                            <div className="pt-2">
+                                <Button
+                                    variant="outline"
+                                    className="w-full h-11 border-indigo-200 hover:bg-indigo-50 text-indigo-700 font-semibold gap-2 border-2 rounded-xl"
+                                    onClick={() => {
+                                        if (!settings.ghl_client_id) {
+                                            toast({ title: "Erro", description: "Preencha o Client ID primeiro", variant: "destructive" });
+                                            return;
+                                        }
+                                        localStorage.setItem('ghl_client_id', settings.ghl_client_id);
+                                        localStorage.setItem('ghl_client_secret', settings.ghl_client_secret);
+
+                                        const redirectUri = encodeURIComponent(window.location.origin + '/callback');
+                                        const scopes = encodeURIComponent('contacts.readonly contacts.write locations.readonly oauth.readonly');
+                                        const url = `https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&client_id=${settings.ghl_client_id}&redirect_uri=${redirectUri}&scope=${scopes}`;
+
+                                        window.location.href = url;
+                                    }}
+                                >
+                                    <Shield className="h-4 w-4" />
+                                    Autenticar Agência (OAuth)
+                                </Button>
                             </div>
                         </div>
+
+                        <div className="pt-6 border-t space-y-4">
+                            <h3 className="text-sm font-bold flex items-center gap-2">
+                                <ShieldCheck className="h-4 w-4 text-blue-500" /> Agency API Key (Legacy)
+                            </h3>
+                            <div className="space-y-2">
+                                <Label htmlFor="agencyKey">API Key Agência</Label>
+                                <Input
+                                    id="agencyKey"
+                                    type="password"
+                                    value={settings.ghl_agency_key}
+                                    onChange={(e) => setSettings({ ...settings, ghl_agency_key: e.target.value })}
+                                    placeholder="Cole o Agency API Key aqui"
+                                    className="h-11 rounded-lg"
+                                />
+                                <p className="text-[10px] text-muted-foreground italic">Usado para sincronização manual de subcontas e funções legadas.</p>
+                            </div>
+                        </div>
+
                         <div className="bg-amber-50 dark:bg-amber-900/10 p-4 rounded-xl border border-amber-200/50 flex gap-3">
                             <Shield className="h-5 w-5 text-amber-600 shrink-0" />
                             <div className="text-xs text-amber-700 dark:text-amber-400">

@@ -93,6 +93,7 @@ export type Database = {
                     location_id: string | null
                     qr_code: string | null
                     status: string | null
+                    ghl_user_id: string | null
                 }
                 Insert: {
                     created_at?: string | null
@@ -103,6 +104,7 @@ export type Database = {
                     location_id?: string | null
                     qr_code?: string | null
                     status?: string | null
+                    ghl_user_id?: string | null
                 }
                 Update: {
                     created_at?: string | null
@@ -113,6 +115,7 @@ export type Database = {
                     location_id?: string | null
                     qr_code?: string | null
                     status?: string | null
+                    ghl_user_id?: string | null
                 }
                 Relationships: []
             }

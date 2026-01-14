@@ -10,15 +10,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useSubaccountConfig } from '@/hooks/use-subaccount-config';
-import { useInstances } from '@/hooks/use-instances';
-import { Loader2, Plus, Link2, Info, Smartphone, Check } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, Plus, Info, Check, User } from 'lucide-react';
+import { listGHLUsers } from '@/lib/ghl';
 import { cn } from '@/lib/utils';
-import { Tabs as TabsRoot, TabsContent as TContent, TabsList as TList, TabsTrigger as TTrigger } from '@/components/ui/tabs';
 
 interface AddInstanceDialogProps {
   open: boolean;
@@ -37,15 +37,17 @@ interface RemoteInstance {
 export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }: AddInstanceDialogProps) {
   const [name, setName] = useState('');
   const [systemName, setSystemName] = useState('');
-  const [selectedRemote, setSelectedRemote] = useState<RemoteInstance | null>(null);
+  const [selectedRemotes, setSelectedRemotes] = useState<RemoteInstance[]>([]);
   const [remoteInstances, setRemoteInstances] = useState<RemoteInstance[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingRemote, setIsLoadingRemote] = useState(false);
   const [mode, setMode] = useState<'new' | 'import'>('new');
-  
+  const [ghlUserId, setGhlUserId] = useState('none');
+  const [ghlUsers, setGhlUsers] = useState<any[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+
   const { toast } = useToast();
   const { data: config } = useSubaccountConfig(locationId);
-  const { instances: localInstances } = useInstances(locationId);
 
   useEffect(() => {
     if (mode === 'import' && open && config?.api_base_url && config?.api_token) {
@@ -53,9 +55,32 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
     }
   }, [mode, open, config]);
 
+  useEffect(() => {
+    async function fetchUsers() {
+      if (open && config?.ghl_token && locationId) {
+        setIsLoadingUsers(true);
+        try {
+          const users = await listGHLUsers(config.ghl_token, locationId);
+          setGhlUsers(users);
+        } catch (err: any) {
+          console.error('Erro ao carregar usuários:', err);
+          toast({
+            title: 'Erro ao carregar usuários GHL',
+            description: err.message,
+            variant: 'destructive'
+          });
+        } finally {
+          setIsLoadingUsers(false);
+        }
+      }
+    }
+    fetchUsers();
+  }, [open, config?.ghl_token, locationId]);
+
   const fetchRemoteInstances = async () => {
     setIsLoadingRemote(true);
     try {
+      // 1. Fetch from server
       const response = await fetch(`${config?.api_base_url}/instance/all`, {
         method: 'GET',
         headers: {
@@ -65,14 +90,20 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
       });
 
       if (!response.ok) throw new Error('Falha ao buscar instâncias.');
-      
+
       const data = await response.json();
-      const list = Array.isArray(data) ? data : (data.instances || []);
-      
-      // Filtra as que já estão vinculadas a ESTA subconta
-      const localTokens = localInstances.map(i => i.instance_token);
-      const filtered = list.filter((remote: RemoteInstance) => !localTokens.includes(remote.token));
-      
+      const list = (Array.isArray(data) ? data : (data.instances || [])) as RemoteInstance[];
+
+      // 2. Fetch ALL linked tokens from DB to prevent duplicates across any subaccount
+      const { data: allLinked } = await supabase
+        .from('instances')
+        .select('instance_token');
+
+      const linkedTokens = new Set(allLinked?.map(i => i.instance_token) || []);
+
+      // Filtra as que NÃO estão em NENHUMA subconta
+      const filtered = list.filter((remote) => !linkedTokens.has(remote.token));
+
       setRemoteInstances(filtered);
     } catch (error: any) {
       toast({ title: 'Erro de Busca', description: error.message, variant: 'destructive' });
@@ -88,13 +119,21 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
     }
   }, [name, mode]);
 
+  const toggleSelection = (remote: RemoteInstance) => {
+    setSelectedRemotes(prev => {
+      const isSelected = prev.find(i => i.token === remote.token);
+      if (isSelected) {
+        return prev.filter(i => i.token !== remote.token);
+      } else {
+        return [...prev, remote];
+      }
+    });
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      let finalInstanceToken = '';
-      let finalName = '';
-
       if (mode === 'new') {
         if (!name.trim()) throw new Error('Nome obrigatório.');
         const response = await fetch(`${config?.api_base_url}/instance/init`, {
@@ -115,24 +154,34 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
 
         if (!response.ok) throw new Error('Erro ao criar no servidor.');
         const data = await response.json();
-        finalInstanceToken = data.token || data.instance?.token;
-        finalName = name.trim();
+        const finalInstanceToken = data.token || data.instance?.token;
+
+        const { error: dbError } = await supabase.from('instances').insert({
+          location_id: locationId,
+          instance_name: name.trim(),
+          instance_token: finalInstanceToken,
+          status: 'disconnected',
+          ghl_user_id: ghlUserId === 'none' ? null : ghlUserId
+        });
+
+        if (dbError) throw dbError;
       } else {
-        if (!selectedRemote) throw new Error('Selecione uma instância.');
-        finalInstanceToken = selectedRemote.token;
-        finalName = selectedRemote.name;
+        if (selectedRemotes.length === 0) throw new Error('Selecione pelo menos uma instância.');
+
+        const inserts = selectedRemotes.map(remote => ({
+          location_id: locationId,
+          instance_name: remote.name,
+          instance_token: remote.token,
+          status: 'disconnected',
+          ghl_user_id: ghlUserId === 'none' ? null : ghlUserId
+        }));
+
+        const { error: dbError } = await supabase.from('instances').insert(inserts);
+
+        if (dbError) throw dbError;
       }
 
-      const { error: dbError } = await supabase.from('instances').insert({
-        location_id: locationId,
-        instance_name: finalName,
-        instance_token: finalInstanceToken,
-        status: 'disconnected',
-      });
-
-      if (dbError) throw dbError;
-
-      toast({ title: 'Sucesso', description: 'Instância vinculada!' });
+      toast({ title: 'Sucesso', description: mode === 'new' ? 'Instância criada!' : `${selectedRemotes.length} instâncias vinculadas!` });
       onOpenChange(false);
       onSuccess();
     } catch (error: any) {
@@ -151,14 +200,14 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
             <DialogDescription>Crie uma nova ou vincule uma existente.</DialogDescription>
           </DialogHeader>
 
-          <TabsRoot defaultValue="new" className="w-full mt-4" onValueChange={(v) => setMode(v as any)}>
-            <TList className="grid w-full grid-cols-2">
-              <TTrigger value="new">Criar Nova</TTrigger>
-              <TTrigger value="import">Importar</TTrigger>
-            </TList>
-            
+          <Tabs defaultValue="new" className="w-full mt-4" onValueChange={(v) => setMode(v as any)}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="new">Criar Nova</TabsTrigger>
+              <TabsTrigger value="import">Importar</TabsTrigger>
+            </TabsList>
+
             <div className="py-4 min-h-[220px]">
-              <TContent value="new" className="m-0 space-y-4">
+              <TabsContent value="new" className="m-0 space-y-4">
                 <div className="space-y-2">
                   <Label>Nome da Instância</Label>
                   <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Vendas" required={mode === 'new'} />
@@ -167,9 +216,34 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
                   <Label className="flex items-center gap-2">System Name <Info className="h-3 w-3" /></Label>
                   <Input value={systemName} onChange={(e) => setSystemName(e.target.value)} className="font-mono text-xs" />
                 </div>
-              </TContent>
 
-              <TContent value="import" className="m-0 space-y-4">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <User className="h-3 w-3" /> Usuário GHL (Opcional)
+                  </Label>
+                  <Select value={ghlUserId} onValueChange={setGhlUserId}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Vincular um usuário..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum usuário</SelectItem>
+                      {isLoadingUsers ? (
+                        <div className="flex items-center justify-center py-2 text-xs text-muted-foreground">
+                          <Loader2 className="h-3 w-3 animate-spin mr-2" /> Carregando...
+                        </div>
+                      ) : (
+                        ghlUsers.map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="import" className="m-0 space-y-4">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label>Instâncias no Servidor</Label>
@@ -182,34 +256,37 @@ export function AddInstanceDialog({ open, onOpenChange, locationId, onSuccess }:
                       <div className="flex flex-col items-center justify-center h-full"><Loader2 className="h-5 w-5 animate-spin" /></div>
                     ) : (
                       <div className="space-y-1">
-                        {remoteInstances.map((remote) => (
-                          <div
-                            key={remote.token}
-                            onClick={() => setSelectedRemote(remote)}
-                            className={cn(
-                              "flex items-center justify-between p-3 rounded-lg border cursor-pointer",
-                              selectedRemote?.token === remote.token ? "bg-primary/10 border-primary" : "bg-card"
-                            )}
-                          >
-                            <div className="overflow-hidden">
-                              <p className="text-xs font-bold truncate">{remote.name}</p>
-                              <p className="text-[10px] text-muted-foreground font-mono truncate">{remote.token}</p>
+                        {remoteInstances.map((remote) => {
+                          const isSelected = selectedRemotes.find(i => i.token === remote.token);
+                          return (
+                            <div
+                              key={remote.token}
+                              onClick={() => toggleSelection(remote)}
+                              className={cn(
+                                "flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all",
+                                isSelected ? "bg-primary/10 border-primary" : "bg-card hover:bg-muted/50"
+                              )}
+                            >
+                              <div className="overflow-hidden">
+                                <p className="text-xs font-bold truncate">{remote.name}</p>
+                                <p className="text-[10px] text-muted-foreground font-mono truncate">{remote.token}</p>
+                              </div>
+                              {isSelected && <Check className="h-4 w-4 text-primary" />}
                             </div>
-                            {selectedRemote?.token === remote.token && <Check className="h-4 w-4 text-primary" />}
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </ScrollArea>
                 </div>
-              </TContent>
+              </TabsContent>
             </div>
-          </TabsRoot>
+          </Tabs>
 
           <DialogFooter>
-            <Button type="submit" className="w-full" disabled={isLoading || (mode === 'new' ? !name.trim() : !selectedRemote)}>
+            <Button type="submit" className="w-full" disabled={isLoading || (mode === 'new' ? !name.trim() : selectedRemotes.length === 0)}>
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-              {mode === 'new' ? 'Criar Instância' : 'Vincular Selecionada'}
+              {mode === 'new' ? 'Criar Instância' : `Vincular ${selectedRemotes.length > 0 ? selectedRemotes.length : ''} Instâncias`}
             </Button>
           </DialogFooter>
         </form>
