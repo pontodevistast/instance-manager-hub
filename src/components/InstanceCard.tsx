@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ConnectDialog } from '@/components/ConnectDialog';
 import { EditInstanceDialog } from '@/components/EditInstanceDialog';
-import { Smartphone, Unplug, RefreshCw, CheckCircle2, Settings2, Loader2, QrCode, AlertCircle, User } from 'lucide-react';
+import { Smartphone, Unplug, RefreshCw, CheckCircle2, Settings2, Loader2, QrCode, AlertCircle, User, Briefcase, Apple } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useSubaccountConfig } from '@/hooks/use-subaccount-config';
@@ -37,12 +38,30 @@ export function InstanceCard({ instance, onRefresh, ghlUsers = [] }: InstanceCar
       });
 
       const apiStatus = data.instance?.status === 'connected' ? 'connected' : 'disconnected';
+      const meta = data.instance || {};
 
-      if (apiStatus !== liveStatus) {
+      // Extração robusta do número (owner/jid)
+      let rawOwner = meta.owner || meta.jid || meta.id;
+      if (rawOwner && typeof rawOwner === 'string') {
+        rawOwner = rawOwner.replace(/@.*$/, '').replace(/[^0-9]/g, '');
+      }
+
+      const platformVal = meta.platform || meta.plataform;
+
+      // Atualiza no banco se houver mudanças relevantes
+      if (apiStatus !== liveStatus || meta.profileName !== instance.profile_name || rawOwner !== instance.owner) {
         setLiveStatus(apiStatus);
+
         await supabase
           .from('instances')
-          .update({ status: apiStatus })
+          .update({
+            status: apiStatus,
+            owner: rawOwner,
+            profile_name: meta.profileName,
+            profile_pic_url: meta.profilePicUrl,
+            is_business: meta.isBusiness,
+            platform: platformVal
+          })
           .eq('id', instance.id);
       }
 
@@ -56,7 +75,7 @@ export function InstanceCard({ instance, onRefresh, ghlUsers = [] }: InstanceCar
     } finally {
       if (!silent) setIsSyncing(false);
     }
-  }, [config, instance.instance_token, instance.id, liveStatus, toast]);
+  }, [config, instance.instance_token, instance.id, instance.profile_name, instance.owner, liveStatus, toast]);
 
   useEffect(() => {
     checkRealStatus(true);
@@ -105,12 +124,41 @@ export function InstanceCard({ instance, onRefresh, ghlUsers = [] }: InstanceCar
 
         <CardContent className="px-5 py-4 flex-1 flex flex-col items-center justify-center min-h-[200px]">
           {liveStatus === 'connected' ? (
-            <div className="text-center animate-in fade-in zoom-in duration-300">
-              <div className="mx-auto w-12 h-12 bg-green-50 dark:bg-green-900/20 rounded-full flex items-center justify-center mb-3">
-                <CheckCircle2 className="w-6 h-6 text-green-600" />
+            <div className="flex flex-col items-center justify-center w-full space-y-3 animate-in fade-in zoom-in duration-300">
+              <div className="relative group/avatar cursor-pointer">
+                <img
+                  src={instance.profile_pic_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(instance.profile_name || instance.instance_name)}&background=random`}
+                  alt="Profile"
+                  className="w-24 h-24 rounded-full border-4 border-slate-100 dark:border-slate-800 object-cover shadow-sm group-hover/avatar:scale-105 transition-transform duration-300"
+                />
+                <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 border-4 border-white dark:border-slate-950 rounded-full shadow-sm" title="Online" />
               </div>
-              <p className="text-sm font-semibold text-green-600">Conectado</p>
-              <p className="text-[11px] text-muted-foreground mt-1">Sincronizado com API real</p>
+
+              <div className="text-center space-y-0.5">
+                <h4 className="text-lg font-bold text-slate-900 dark:text-slate-100 leading-tight px-2 line-clamp-1" title={instance.profile_name || ''}>
+                  {instance.profile_name || instance.instance_name}
+                </h4>
+                <p className="text-sm font-mono text-muted-foreground bg-slate-100 dark:bg-slate-900 px-2 py-0.5 rounded-md inline-block">
+                  {instance.owner ? `+${instance.owner}` : "Sem número"}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap justify-center items-center gap-2 mt-1">
+                {instance.is_business && (
+                  <Badge variant="secondary" className="text-[10px] h-5 px-1.5 gap-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200">
+                    <Briefcase className="w-3 h-3" /> Business
+                  </Badge>
+                )}
+                {instance.platform && (
+                  <Badge variant="outline" className="text-[10px] h-5 px-1.5 gap-1 capitalize">
+                    {instance.platform.toLowerCase().includes('ios') ? <Apple className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
+                    {instance.platform}
+                  </Badge>
+                )}
+                <Badge variant="outline" className="text-[10px] h-5 px-1.5 gap-1 text-green-600 border-green-200 bg-green-50">
+                  <CheckCircle2 className="w-3 h-3" /> Ativo
+                </Badge>
+              </div>
             </div>
           ) : liveStatus === 'error' ? (
             <div className="text-center">

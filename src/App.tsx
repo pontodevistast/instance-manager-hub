@@ -13,6 +13,7 @@ import ManagerPage from "@/pages/ManagerPage";
 import InstanceDashboard from "@/pages/InstanceDashboard";
 import AuthCallback from "@/pages/AuthCallback";
 import GlobalSettingsPage from "@/pages/GlobalSettingsPage";
+import SubaccountAutomationPage from "@/pages/SubaccountAutomationPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
             <Route path="instances" element={<InstancesPage />} />
             <Route path="dashboard" element={<InstanceDashboard />} />
             <Route path="ghl" element={<GHLIntegrationPage />} />
+            <Route path="automation" element={<SubaccountAutomationPage />} />
             <Route path="logs" element={<LogsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

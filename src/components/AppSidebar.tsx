@@ -30,9 +30,9 @@ export function AppSidebar() {
 
   const menuItems = [
     { title: 'Instâncias', url: `/${locationId}/instances`, icon: Smartphone },
-    { title: 'Integração', url: `/${locationId}/ghl`, icon: Zap },
+    { title: 'Integração', url: `/${locationId}/ghl`, icon: Settings },
+    { title: 'Mover Kanban', url: `/${locationId}/automation`, icon: Zap },
     { title: 'Logs', url: `/${locationId}/logs`, icon: FileText },
-    { title: 'Configurações', url: `/${locationId}/settings`, icon: Settings },
   ];
 
   return (

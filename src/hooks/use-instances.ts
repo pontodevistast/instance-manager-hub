@@ -14,7 +14,7 @@ export function useInstances(locationId: string | null) {
     queryKey,
     queryFn: async () => {
       if (!locationId) return [];
-      
+
       const { data, error } = await supabase
         .from('instances')
         .select('*')
@@ -22,7 +22,7 @@ export function useInstances(locationId: string | null) {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Instance[];
+      return data as unknown as Instance[];
     },
     enabled: !!locationId,
   });
@@ -89,9 +89,9 @@ export function useInstances(locationId: string | null) {
     };
   }, [locationId, queryClient, queryKey, toast]);
 
-  return { 
-    instances, 
-    isLoading, 
-    refetch 
+  return {
+    instances,
+    isLoading,
+    refetch
   };
 }

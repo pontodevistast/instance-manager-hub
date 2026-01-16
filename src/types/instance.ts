@@ -10,6 +10,11 @@ export interface Instance {
   qr_code: string | null;
   last_heartbeat: string | null;
   ghl_user_id: string | null;
+  owner: string | null;
+  profile_name: string | null;
+  profile_pic_url: string | null;
+  is_business: boolean | null;
+  platform: string | null;
 }
 
 export interface CallLog {

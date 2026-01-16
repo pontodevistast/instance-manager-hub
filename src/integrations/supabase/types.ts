@@ -6,12 +6,7 @@ export type Json =
     | { [key: string]: Json | undefined }
     | Json[]
 
-export type Database = {
-    // Allows to automatically instantiate createClient with right options
-    // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-    __InternalSupabase: {
-        PostgrestVersion: "14.1"
-    }
+export interface Database {
     public: {
         Tables: {
             ghl_agency_tokens: {
@@ -47,6 +42,58 @@ export type Database = {
                     refresh_token?: string
                     updated_at?: string | null
                     user_id?: string | null
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "ghl_agency_tokens_user_id_fkey"
+                        columns: ["user_id"]
+                        referencedRelation: "users"
+                        referencedColumns: ["id"]
+                    }
+                ]
+            }
+            ghl_automation_config: {
+                Row: {
+                    agent_prompt: string | null
+                    ai_settings: Json | null
+                    created_at: string | null
+                    delay_seconds: number | null
+                    gemini_api_key: string | null
+                    ghl_pipeline_id: string | null
+                    is_active: boolean | null
+                    kanban_prompt: string | null
+                    knowledge_base: string | null
+                    location_id: string
+                    stage_mappings: Json | null
+                    updated_at: string | null
+                }
+                Insert: {
+                    agent_prompt?: string | null
+                    ai_settings?: Json | null
+                    created_at?: string | null
+                    delay_seconds?: number | null
+                    gemini_api_key?: string | null
+                    ghl_pipeline_id?: string | null
+                    is_active?: boolean | null
+                    kanban_prompt?: string | null
+                    knowledge_base?: string | null
+                    location_id: string
+                    stage_mappings?: Json | null
+                    updated_at?: string | null
+                }
+                Update: {
+                    agent_prompt?: string | null
+                    ai_settings?: Json | null
+                    created_at?: string | null
+                    delay_seconds?: number | null
+                    gemini_api_key?: string | null
+                    ghl_pipeline_id?: string | null
+                    is_active?: boolean | null
+                    kanban_prompt?: string | null
+                    knowledge_base?: string | null
+                    location_id?: string
+                    stage_mappings?: Json | null
+                    updated_at?: string | null
                 }
                 Relationships: []
             }
@@ -86,36 +133,51 @@ export type Database = {
             instances: {
                 Row: {
                     created_at: string | null
+                    ghl_user_id: string | null
                     id: string
                     instance_name: string | null
                     instance_token: string | null
                     last_heartbeat: string | null
-                    location_id: string | null
+                    location_id: string
                     qr_code: string | null
                     status: string | null
-                    ghl_user_id: string | null
+                    owner: string | null
+                    profile_name: string | null
+                    profile_pic_url: string | null
+                    is_business: boolean | null
+                    platform: string | null
                 }
                 Insert: {
                     created_at?: string | null
+                    ghl_user_id?: string | null
                     id?: string
                     instance_name?: string | null
                     instance_token?: string | null
                     last_heartbeat?: string | null
-                    location_id?: string | null
+                    location_id: string
                     qr_code?: string | null
                     status?: string | null
-                    ghl_user_id?: string | null
+                    owner?: string | null
+                    profile_name?: string | null
+                    profile_pic_url?: string | null
+                    is_business?: boolean | null
+                    platform?: string | null
                 }
                 Update: {
                     created_at?: string | null
+                    ghl_user_id?: string | null
                     id?: string
                     instance_name?: string | null
                     instance_token?: string | null
                     last_heartbeat?: string | null
-                    location_id?: string | null
+                    location_id?: string
                     qr_code?: string | null
                     status?: string | null
-                    ghl_user_id?: string | null
+                    owner?: string | null
+                    profile_name?: string | null
+                    profile_pic_url?: string | null
+                    is_business?: boolean | null
+                    platform?: string | null
                 }
                 Relationships: []
             }
@@ -152,23 +214,63 @@ export type Database = {
                 }
                 Relationships: []
             }
-        }
-        Views: {
             unified_instance_ghl: {
                 Row: {
                     account_name: string | null
-                    api_admin_token: string | null
                     api_base_url: string | null
-                    ghl_subaccount_token: string | null
-                    global_webhook_url: string | null
+                    api_token: string | null
+                    created_at: string | null
+                    ghl_token: string | null
+                    ghl_user_id: string | null
+                    id: string | null
                     ignore_groups: boolean | null
                     instance_name: string | null
-                    instance_status: string | null
+                    instance_token: string | null
+                    last_heartbeat: string | null
                     location_id: string | null
-                    uazapi_instance_token: string | null
+                    qr_code: string | null
+                    status: string | null
+                    updated_at: string | null
+                }
+                Insert: {
+                    account_name?: string | null
+                    api_base_url?: string | null
+                    api_token?: string | null
+                    created_at?: string | null
+                    ghl_token?: string | null
+                    ghl_user_id?: string | null
+                    id?: string | null
+                    ignore_groups?: boolean | null
+                    instance_name?: string | null
+                    instance_token?: string | null
+                    last_heartbeat?: string | null
+                    location_id?: string | null
+                    qr_code?: string | null
+                    status?: string | null
+                    updated_at?: string | null
+                }
+                Update: {
+                    account_name?: string | null
+                    api_base_url?: string | null
+                    api_token?: string | null
+                    created_at?: string | null
+                    ghl_token?: string | null
+                    ghl_user_id?: string | null
+                    id?: string | null
+                    ignore_groups?: boolean | null
+                    instance_name?: string | null
+                    instance_token?: string | null
+                    last_heartbeat?: string | null
+                    location_id?: string | null
+                    qr_code?: string | null
+                    status?: string | null
+                    updated_at?: string | null
                 }
                 Relationships: []
             }
+        }
+        Views: {
+            [_ in never]: never
         }
         Functions: {
             [_ in never]: never
@@ -181,112 +283,3 @@ export type Database = {
         }
     }
 }
-
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
-type DefaultSchema = DatabaseWithoutInternals["public"]
-
-export type Tables<
-    PublicTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
-    TableName extends PublicTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
-    ? keyof (DatabaseWithoutInternals[PublicTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[PublicTableNameOrOptions["schema"]]["Views"])
-    : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
-    ? (DatabaseWithoutInternals[PublicTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-            Row: infer R
-        }
-    ? R
-    : never
-    : PublicTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[PublicTableNameOrOptions] extends {
-        Row: infer R
-    }
-    ? R
-    : never
-    : never
-
-export type TablesInsert<
-    PublicTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-    TableName extends PublicTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
-    ? keyof DatabaseWithoutInternals[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
-    ? DatabaseWithoutInternals[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-        Insert: infer I
-    }
-    ? I
-    : never
-    : PublicTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][PublicTableNameOrOptions] extends {
-        Insert: infer I
-    }
-    ? I
-    : never
-    : never
-
-export type TablesUpdate<
-    PublicTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-    TableName extends PublicTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
-    ? keyof DatabaseWithoutInternals[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
-    ? DatabaseWithoutInternals[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-        Update: infer U
-    }
-    ? U
-    : never
-    : PublicTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][PublicTableNameOrOptions] extends {
-        Update: infer U
-    }
-    ? U
-    : never
-    : never
-
-export type Enums<
-    DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-    EnumName extends DefaultSchemaEnumNameOrOptions extends {
-        schema: keyof DatabaseWithoutInternals
-    }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-}
-    ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-    : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
-
-export type CompositeTypes<
-    PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-    CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-        schema: keyof DatabaseWithoutInternals
-    }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-}
-    ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-    : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
-
-export const Constants = {
-    public: {
-        Enums: {},
-    },
-} as const
