@@ -1,0 +1,132 @@
+{
+    "mcpServers": {
+        "rube": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@composio/rube-mcp@latest"
+            ],
+            "env": {
+                "COMPOSIO_API_KEY": "PLACEHOLDER_KEY"
+            }
+        },
+        "context7": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@upstash/context7-mcp@latest"
+            ]
+        },
+        "n8n": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "n8n-mcp"
+            ],
+            "env": {
+                "N8N_API_URL": "http://localhost:5678/api/v1",
+                "N8N_API_KEY": "PLACEHOLDER_KEY"
+            }
+        },
+        "playwright": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-playwright"
+            ]
+        },
+        "github": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-github"
+            ],
+            "env": {
+                "GITHUB_PERSONAL_ACCESS_TOKEN": "PLACEHOLDER_KEY"
+            }
+        },
+        "supabase": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@supabase/mcp-server"
+            ],
+            "env": {
+                "SUPABASE_URL": "PLACEHOLDER_URL",
+                "SUPABASE_ANON_KEY": "PLACEHOLDER_KEY"
+            }
+        },
+        "puppeteer": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "puppeteer-mcp-server"
+            ]
+        },
+        "sequential-thinking": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-sequentialthinking"
+            ]
+        },
+        "firebase": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@firebase/mcp-server"
+            ],
+            "env": {
+                "GOOGLE_APPLICATION_CREDENTIALS": "/path/to/service-account.json"
+            }
+        },
+        "postgres": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-postgres"
+            ],
+            "env": {
+                "POSTGRES_CONNECTION_STRING": "postgresql://user:password@localhost:5432/dbname"
+            }
+        },
+        "notion": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@notionhq/mcp-server"
+            ],
+            "env": {
+                "NOTION_API_KEY": "PLACEHOLDER_KEY"
+            }
+        },
+        "brave-search": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-brave-search"
+            ],
+            "env": {
+                "BRAVE_API_KEY": "PLACEHOLDER_KEY"
+            }
+        },
+        "memory": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-memory"
+            ]
+        },
+        "cloudflare": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@cloudflare/mcp-server"
+            ],
+            "env": {
+                "CLOUDFLARE_API_TOKEN": "PLACEHOLDER_KEY",
+                "CLOUDFLARE_ACCOUNT_ID": "PLACEHOLDER_ID"
+            }
+        }
+    }
+}
