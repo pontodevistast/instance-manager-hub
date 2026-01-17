@@ -7,7 +7,7 @@
                 "@composio/rube-mcp@latest"
             ],
             "env": {
-                "COMPOSIO_API_KEY": "PLACEHOLDER_KEY"
+                "COMPOSIO_API_KEY": "eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOiJ1c2VyXzAxS0Y2R001SDFLSzdXU0FYWlMzRDYwNlhKIiwib3JnSWQiOiJvcmdfMDFLRjZHTTdUM05YR0NDWENaSlpDMEcyTVgiLCJpYXQiOjE3Njg2NzE2Nzd9.A64HtuvvsCfDRTcR6dQC2np3LUcAOVHHS_UiKvp2QFY"
             }
         },
         "context7": {
@@ -25,7 +25,7 @@
             ],
             "env": {
                 "N8N_API_URL": "http://localhost:5678/api/v1",
-                "N8N_API_KEY": "PLACEHOLDER_KEY"
+                "N8N_API_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkYjQ1NWE1Zi0zN2Q0LTQ4ZjgtYTE5ZC1mZjM4NWM4ODYzM2QiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzY4NjcxNjU3fQ.wdKB7-DEBrMtJo8kz9iOmMdNDxTbWX71Gdy-tN4zp50"
             }
         },
         "playwright": {
@@ -52,8 +52,8 @@
                 "@supabase/mcp-server"
             ],
             "env": {
-                "SUPABASE_URL": "PLACEHOLDER_URL",
-                "SUPABASE_ANON_KEY": "PLACEHOLDER_KEY"
+                "SUPABASE_URL": "https://onanrpmrgdfjsrtwckxi.supabase.co",
+                "SUPABASE_ANON_KEY": "sb_secret_A_5X0v65aMxgk250bEH1Vw_RIWLWGv_"
             }
         },
         "puppeteer": {
@@ -97,7 +97,7 @@
                 "@notionhq/mcp-server"
             ],
             "env": {
-                "NOTION_API_KEY": "PLACEHOLDER_KEY"
+                "NOTION_API_KEY": "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"
             }
         },
         "brave-search": {
