@@ -24,6 +24,9 @@
                 "n8n-mcp"
             ],
             "env": {
+                "MCP_MODE": "stdio",
+                "LOG_LEVEL": "error",
+                "DISABLE_CONSOLE_OUTPUT": "true",
                 "N8N_API_URL": "http://localhost:5678/api/v1",
                 "N8N_API_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkYjQ1NWE1Zi0zN2Q0LTQ4ZjgtYTE5ZC1mZjM4NWM4ODYzM2QiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzY4NjcxNjU3fQ.wdKB7-DEBrMtJo8kz9iOmMdNDxTbWX71Gdy-tN4zp50"
             }
