@@ -1,5 +1,16 @@
 {
     "mcpServers": {
+        "n8n-cloud": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "supergateway",
+                "--streamableHttp",
+                "https://dev.bslabs.space/mcp-server/http",
+                "--header",
+                "authorization:Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkYjQ1NWE1Zi0zN2Q0LTQ4ZjgtYTE5ZC1mZjM4NWM4ODYzM2QiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6IjM3NjRmYjU0LTE2ZjMtNGUwZC04ZDhkLTBhODczNWFhMzAxYyIsImlhdCI6MTc2ODY3NTIxMX0.6cgDGbQo822zXqYj9vsCcZ1hRY5U-MyW7LqWE1j6T64"
+            ]
+        },
         "rube": {
             "command": "npx",
             "args": [
@@ -16,20 +27,6 @@
                 "-y",
                 "@upstash/context7-mcp@latest"
             ]
-        },
-        "n8n": {
-            "command": "npx",
-            "args": [
-                "-y",
-                "n8n-mcp"
-            ],
-            "env": {
-                "MCP_MODE": "stdio",
-                "LOG_LEVEL": "error",
-                "DISABLE_CONSOLE_OUTPUT": "true",
-                "N8N_API_URL": "http://localhost:5678/api/v1",
-                "N8N_API_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkYjQ1NWE1Zi0zN2Q0LTQ4ZjgtYTE5ZC1mZjM4NWM4ODYzM2QiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzY4NjcxNjU3fQ.wdKB7-DEBrMtJo8kz9iOmMdNDxTbWX71Gdy-tN4zp50"
-            }
         },
         "playwright": {
             "command": "npx",
